@@ -1,0 +1,60 @@
+#cargo-features = ["edition2021"]
+
+
+[package]
+name = "qinghe"
+authors = ["Zhaoping Lu <zhaopinglu77@gmail.cm>"]
+description = "A tool for generating ddl and insert sql for Oracle data."
+license = "Apache-2.0/MIT"
+version = "0.9.3"
+edition = "2021"
+
+readme = "asdfaaaaa"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+r2d2-oracle = { git = "https://github.com/zhaopinglu/r2d2-oracle" }
+oracle = { version = "*", features = ["chrono"] }
+
+# Date time (required)
+chrono = { version = "*", features = ["serde"] }
+
+# BigDecimal lib(optional)
+bigdecimal = "*"
+
+structopt = "*"
+# logging lib(required)
+log = "*"
+fast_log="*"
+
+tokio = { version = "*", features = ["full"]}
+
+lazy_static = "*"
+
+async-channel = "*"
+futures = "*"
+
+dashmap = "*"
+
+async-trait = "*"
+
+yaml-rust = "*"
+
+serde = "*"
+serde_yaml = "*"
+serde_dhall = "*"
+linked-hash-map = "*"
+
+num-bigint = "0.4"
+num_cpus = "*"
+
+[profile.dev]
+opt-level = 1
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.test]
+opt-level = 1
+[profile.test.package."*"]
+opt-level = 3

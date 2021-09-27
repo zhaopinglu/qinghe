@@ -1,0 +1,227 @@
+
+# todo:
+# view
+
+Oracle2MySQL:
+    drop_tmp_tab_data: |
+        drop table tmp_tab_data
+
+    create_tmp_tab_data: |
+        CREATE TABLE tmp_tab_data (
+        owner varchar2(128),
+        table_name varchar2(128),
+        chunk_id int,
+        snap_scn int,
+        dop int,
+        has_lob int,
+        start_rowid rowid,
+        end_rowid rowid,
+        not_pk_col_cnt int,
+        col_clause clob,
+        update_clause clob,
+        pk_clause varchar2(4000),
+        status varchar2(30),
+        pid varchar2(10),
+        start_time timestamp(6),
+        end_time timestamp(6),
+        out_file varchar2(1000),
+        PRIMARY key(owner, table_name, chunk_id)
+        )
+
+    drop_tmp_seg_ext: |
+        DROP TABLE tmp_seg_ext
+
+    create_tmp_seg_ext: |
+        CREATE TABLE tmp_seg_ext (
+        OWNER VARCHAR2(128),
+        SEGMENT_NAME VARCHAR2(128),
+        BLOCKS NUMBER,
+        DATA_OBJECT_ID NUMBER,
+        RELATIVE_FNO NUMBER,
+        BLOCK_ID NUMBER,
+        SNAP_SCN NUMBER
+        )
+
+    insert_tmp_seg_ext: |
+        INSERT INTO tmp_seg_ext
+        SELECT owner, segment_name, blocks,DATA_OBJECT_ID, RELATIVE_FNO, block_id, dbms_flashback.get_system_change_number snap_scn
+        FROM   SYS.DBMS_PARALLEL_EXECUTE_EXTENTS
+        WHERE  OWNER = :schema
+        AND regexp_like(SEGMENT_name, :table_name_pattern)
+        AND SEGMENT_TYPE IN ('TABLE', 'TABLE PARTITION','TABLE SUBPARTITION')
+        AND SEGMENT_name NOT LIKE 'BIN$%'
+        AND SEGMENT_name NOT LIKE 'SYS_EXPORT_SCHEMA%'
+        AND SEGMENT_name NOT IN ('TMP_CONS', 'TMP_COLS', 'TMP_TAB_DDL', 'TMP_TAB_DATA', 'TMP_PREV_SCN', 'TMP_SEG_EXT')
+
+    insert_tmp_tab_data: |
+        INSERT INTO TMP_TAB_DATA
+        WITH e AS (
+        	SELECT e.*,
+        			min(snap_scn) over(PARTITION BY 1) min_snap_scn,
+        			sum(blocks) OVER (PARTITION BY owner, segment_name) total_blocks,
+        			CASE WHEN sum(blocks) OVER (PARTITION BY owner, segment_name)  > 4096 THEN CEIL(sum(blocks) OVER (PARTITION BY owner, segment_name) / 4096) ELSE 1 END dop,
+        	        (SELECT 1 FROM all_tab_cols WHERE OWNER=E.owner AND table_name=E.SEGMENT_NAME AND data_type IN ('CLOB', 'BLOB', 'RAW', 'LONG RAW', 'LONG') AND rownum<2) has_lob,
+        	        DBMS_ROWID.ROWID_CREATE(1,DATA_OBJECT_ID, RELATIVE_FNO, block_id, 0) start_rowid,
+        	        DBMS_ROWID.ROWID_CREATE(1,DATA_OBJECT_ID, RELATIVE_FNO, block_id+blocks-1, 9999) end_rowid
+        	  FROM   tmp_seg_ext E
+        	  ORDER BY has_lob, total_blocks DESC, owner, SEGMENT_NAME, RELATIVE_FNO, BLOCK_ID
+        )
+        ,tile AS (
+        	SELECT	ntile(dop) OVER (PARTITION BY dop, owner, segment_name ORDER BY DATA_OBJECT_ID,RELATIVE_FNO, BLOCK_ID) chunk_id, e.* FROM e
+        )
+        ,grp AS (
+        	SELECT
+        	first_value(start_rowid) OVER(PARTITION BY owner, segment_name, chunk_id ORDER BY relative_fno, block_id) start_rowid,
+        	last_value(end_rowid) OVER(PARTITION BY owner, segment_name, chunk_id ORDER BY relative_fno, block_id RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) end_rowid,
+        	owner, segment_name, chunk_id,dop,has_lob, min_snap_scn  FROM tile ORDER BY has_lob, total_blocks DESC, owner, SEGMENT_NAME, RELATIVE_FNO, BLOCK_ID
+        )
+        , chunks AS (
+        	SELECT owner, segment_name, chunk_id, min_snap_scn,
+        	min(dop) dop, min(has_lob) has_lob,min(start_rowid) start_rowid, min(end_rowid) end_rowid
+        	FROM grp GROUP BY owner, segment_name, chunk_id,min_snap_scn
+        )
+        ,pks AS (
+        	SELECT /*+ rule */ i.TABLE_OWNER, i.TABLE_NAME , i.COLUMN_NAME
+        	FROM all_ind_columns i, all_constraints c
+        	WHERE c.constraint_type='P'
+        	AND i.INDEX_OWNER = c.OWNER /* Should use owner instead of INDEX_OWNER here because the index_owner seems always null in 11.2.0.1 */
+        	AND i.INDEX_NAME  = c.INDEX_NAME
+        	AND i.TABLE_OWNER = :schema
+        	AND regexp_like(i.table_name, :table_name_pattern)
+        	AND i.table_name NOT LIKE 'BIN$%'
+        	AND i.table_name NOT LIKE 'SYS_EXPORT_SCHEMA%'
+        	AND i.table_name NOT IN ('TMP_CONS', 'TMP_COLS', 'TMP_TAB_DDL', 'TMP_TAB_DATA', 'TMP_PREV_SCN', 'TMP_SEG_EXT')
+        )
+        ,cols AS (
+        	SELECT  /*+ rule */ t.owner, t.table_name, t.COLUMN_NAME , t.COLUMN_ID , p.column_name pk_col
+        	,CASE WHEN (sum(CASE WHEN p.column_name IS NULL THEN 0 ELSE 1 END) OVER (PARTITION BY t.owner, t.table_name)) > 0 THEN 1 ELSE 0 END has_pk
+        	,sum(CASE WHEN p.column_name IS NULL THEN 1 ELSE 0 END) OVER (PARTITION BY t.owner, t.table_name) not_pk_col_cnt
+        	FROM all_tab_cols t,pks p
+        	WHERE t.owner = p.table_owner(+) AND t.TABLE_NAME = p.table_name(+) AND t.COLUMN_NAME = p.column_name(+)
+        	AND t.OWNER = :schema
+        	AND regexp_like(t.table_name, :table_name_pattern)
+        	AND t.table_name NOT LIKE 'BIN$%'
+        	AND t.table_name NOT LIKE 'SYS_EXPORT_SCHEMA%'
+        	AND t.table_name NOT IN ('TMP_CONS', 'TMP_COLS', 'TMP_TAB_DDL', 'TMP_TAB_DATA', 'TMP_PREV_SCN', 'TMP_SEG_EXT')
+        	ORDER BY t.owner, t.table_name, t.COLUMN_ID
+        )
+        ,tabs AS (
+        	SELECT	owner, table_name,has_pk,not_pk_col_cnt,
+        	''||dbms_xmlgen.convert(rtrim(xmlagg(xmlelement(e, '`'||column_name||'`'||',') ORDER BY COLUMN_ID).extract ('//text()').GetClobVal(),','), 1) col_clause,
+        	(SELECT listagg('`'||column_name||'`', ', ') WITHIN GROUP (ORDER BY column_id) pk_clause FROM cols c2 WHERE c2.owner = c.owner AND c2.table_name = c.table_name AND c2.pk_col IS NOT NULL) pk_clause,
+        	(SELECT ' on duplicate key update '||
+        		dbms_xmlgen.convert(rtrim(xmlagg(xmlelement(e, '`'||column_name||'`=values(`'||column_name||'`)'||',') ORDER BY COLUMN_ID).extract ('//text()').GetClobVal(),','), 1)
+        		FROM cols WHERE owner = c.owner AND table_name = c.table_name AND ((has_pk=1 AND pk_col IS NULL) OR has_pk=0 OR not_pk_col_cnt=0)) update_clause
+        	 FROM cols c GROUP BY owner, table_name, has_pk,not_pk_col_cnt
+        )
+        SELECT k.*,
+        t.not_pk_col_cnt,
+        t.col_clause,
+        t.update_clause,
+        t.pk_clause,
+        NULL status, NULL pid, NULL start_time, NULL end_time, NULL out_file
+        FROM chunks K, tabs t
+        WHERE t.owner = k.owner AND t.table_name = k.segment_name
+        ORDER BY dop DESC,has_lob, k.owner, segment_name, chunk_id
+
+    select_tmp_tab_data: |
+        SELECT * FROM tmp_tab_data ORDER BY has_lob, dop DESC, owner, table_name, chunk_id
+
+    count_tmp_tab_data: |
+        SELECT count(*) FROM tmp_tab_data
+
+
+    drop_tmp_prev_scn: |
+        drop table tmp_prev_scn
+
+    create_tmp_prev_scn: |
+        create table tmp_prev_scn (snap_scn int, primary key(snap_scn))
+
+    truncate_tmp_prev_scn: |
+        truncate table tmp_prev_scn
+
+    insert_tmp_prev_scn: |
+        insert into tmp_prev_scn select distinct snap_scn from tmp_tab_data
+
+    select_tmp_prev_scn: |
+        select snap_scn from tmp_prev_scn where rownum < 2
+
+
+
+#    drop_type_chunk_table: |
+#        DROP TYPE chunk_table
+#
+#    drop_type_chunk_record: |
+#        DROP TYPE chunk_record
+#
+#    create_type_chunk_record: |
+#        CREATE TYPE chunk_record as object(chunk_id number, start_rowid varchar2(100), end_rowid varchar2(100))
+#
+#    create_type_chunk_table: |
+#        create TYPE chunk_table as TABLE OF chunk_record
+#
+#    create_get_chunk_rowids: |
+#        create or replace function tmpdba.get_chunk_rowids(p_owner      varchar2,
+#                                                           p_table_name varchar2,
+#                                                           p_task_name  varchar2,
+#                                                           p_chunk_size NUMBER DEFAULT 200000,
+#                                                           p_dop        number)
+#          RETURN chunk_table IS
+#          PRAGMA AUTONOMOUS_TRANSACTION;
+#          chunks chunk_table := chunk_table();
+#        BEGIN
+#          BEGIN
+#            dbms_parallel_execute.drop_chunks(p_task_name);
+#            dbms_parallel_execute.drop_task(p_task_name);
+#          EXCEPTION
+#            WHEN OTHERS THEN
+#              NULL;
+#          END;
+#
+#          begin
+#            dbms_parallel_execute.create_task(p_task_name);
+#            dbms_parallel_execute.create_chunks_by_rowid(task_name   => p_task_name,
+#                                                         table_owner => p_owner,
+#                                                         table_name  => p_table_name,
+#                                                         by_row      => true,
+#                                                         chunk_size  => p_chunk_size);
+#          exception
+#            when others then
+#              dbms_output.put_line('Failed to create chunks for table:' || p_owner || '.' ||
+#                                   p_table_name || ', task name: ' || p_task_name ||
+#                                   ', chunk size: ' || p_chunk_size);
+#              raise;
+#          end;
+#
+#          WITH t AS
+#           (SELECT start_rowid,
+#                   end_rowid,
+#                   dbms_rowid.rowid_relative_fno(start_rowid) as start_rel_fno,
+#                   dbms_rowid.rowid_block_number(start_rowid) as start_block_num,
+#                   ntile(p_dop) OVER(ORDER BY dbms_rowid.rowid_relative_fno(start_rowid), dbms_rowid.rowid_block_number(start_rowid)) group_id
+#              FROM user_parallel_execute_chunks
+#             WHERE task_name = p_task_name),
+#          T2 AS
+#           (SELECT DISTINCT group_id,
+#                            first_value(start_rowid) OVER(PARTITION BY group_id ORDER BY start_rel_fno, start_block_num) FIRST_ROWID,
+#                            last_value(end_rowid) OVER(PARTITION BY group_id ORDER BY start_rel_fno, start_block_num RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) LAST_ROWID
+#              FROM t
+#             ORDER BY group_id)
+#          SELECT CHUNK_RECORD(GROUP_ID, FIRST_ROWID, LAST_ROWID)
+#            BULK COLLECT
+#            INTO CHUNKS
+#            FROM T2;
+#
+#          BEGIN
+#            dbms_parallel_execute.drop_chunks(p_task_name);
+#            dbms_parallel_execute.drop_task(p_task_name);
+#          EXCEPTION
+#            WHEN OTHERS THEN
+#              NULL;
+#          END;
+#
+#          return chunks;
+#        END;
+#        /* note: the ending semi colon is needed in yaml for plsql function ddl */
+
+

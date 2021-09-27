@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CMakeSettings">
+    <configurations>
+      <configuration PROFILE_NAME="Debug" ENABLED="true" CONFIG_NAME="Debug" />
+    </configurations>
+  </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="564a61ec-fc8a-4797-b6e9-ebb59e34ad2d" name="Changes" comment="" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Rust File" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="rp8y2a6r" />
+  </component>
+  <component name="ProjectId" id="1wThpjXMsa9cJYglEechH8Jr8o3" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="RunOnceActivity.cidr.known.project.marker" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="true" />
+    <property name="cf.first.check.clang-format" value="false" />
+    <property name="cidr.known.project.marker" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="org.rust.cargo.project.model.PROJECT_DISCOVERY" value="true" />
+    <property name="settings.editor.selected.configurable" value="preferences.pluginManager" />
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\works_local\projects\qinghe\src" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\works_local\projects\qinghe\output\tmp" />
+      <recent name="C:\works_local\projects\qinghe" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="command" value="run --package qinghe --bin qinghe" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="emulateTerminal" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="backtrace" value="SHORT" />
+      <envs />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+    <option name="version" value="2" />
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="564a61ec-fc8a-4797-b6e9-ebb59e34ad2d" name="Changes" comment="" />
+      <created>1628488670960</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1628488670960</updated>
+      <workItem from="1628488672892" duration="6092000" />
+      <workItem from="1628502538054" duration="39000" />
+      <workItem from="1628502601653" duration="229000" />
+      <workItem from="1628502844361" duration="9614000" />
+      <workItem from="1628746339607" duration="19421000" />
+      <workItem from="1629177477103" duration="2439000" />
+      <workItem from="1629353913224" duration="64083000" />
+      <workItem from="1629876907077" duration="13844000" />
+      <workItem from="1630031718386" duration="214000" />
+      <workItem from="1630032002525" duration="684000" />
+      <workItem from="1630313214169" duration="5860000" />
+      <workItem from="1630373384577" duration="747000" />
+      <workItem from="1630390375807" duration="15000" />
+      <workItem from="1630390405567" duration="1156000" />
+      <workItem from="1630570613719" duration="7165000" />
+      <workItem from="1630630298520" duration="341000" />
+      <workItem from="1630630659238" duration="50673000" />
+      <workItem from="1630890422193" duration="6324000" />
+      <workItem from="1630912103830" duration="4572000" />
+      <workItem from="1630973653622" duration="5364000" />
+      <workItem from="1631063378711" duration="12563000" />
+      <workItem from="1631104389883" duration="7833000" />
+      <workItem from="1631163534272" duration="1718000" />
+      <workItem from="1631166579888" duration="1107000" />
+      <workItem from="1631169075381" duration="4216000" />
+      <workItem from="1631195933983" duration="1298000" />
+      <workItem from="1631495562638" duration="1001000" />
+      <workItem from="1631667085637" duration="163000" />
+      <workItem from="1631678073844" duration="343000" />
+      <workItem from="1631696147361" duration="17596000" />
+      <workItem from="1631717951774" duration="183000" />
+      <workItem from="1631755134524" duration="12329000" />
+      <workItem from="1631794867351" duration="5811000" />
+      <workItem from="1631926060713" duration="1001000" />
+      <workItem from="1631933325024" duration="1000" />
+      <workItem from="1632140038667" duration="172000" />
+      <workItem from="1632140231594" duration="8923000" />
+      <workItem from="1632310111641" duration="2000" />
+    </task>
+    <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="master" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="oldMeFiltersMigrated" value="true" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
+  </component>
+  <component name="XDebuggerManager">
+    <watches-manager>
+      <configuration name="CargoCommandRunConfiguration">
+        <watch expression="ARGS" />
+        <watch expression="tab" />
+      </configuration>
+    </watches-manager>
+  </component>
+</project>
