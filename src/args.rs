@@ -15,13 +15,11 @@ pub struct Arguments {
     pub user: String,
 
     /// Password
-    #[structopt(short, long, default_value = "welcome1")]
-    // #[structopt(short, long, default_value = "admin_123")]
+    #[structopt(short, long, default_value = "test")]
     pub password: String,
 
     /// Host
     #[structopt(short = "H", long, default_value = "192.168.12.5")]
-    // #[structopt(short = "H", long, default_value = "192.168.48.188")]
     pub host: String,
 
     /// Port
@@ -34,7 +32,6 @@ pub struct Arguments {
 
     /// Schema
     #[structopt(short = "S", long, default_value = "TEST" )]
-    // #[structopt(short = "S", long, default_value = "ECS_FSSC_PROJECT" )]
     pub schema: String,
 
     /// Output file name suffix, will be followed by a suffix string, like "_ddl.sql".
@@ -72,19 +69,6 @@ pub struct Arguments {
     /// # Note: 'consistent' or 'increment' modes export could hit ORA-01555 error if don't have sufficient undo tablespace.
     #[structopt(short = "m", long, default_value = "normal" )]
     pub mode: String,
-
-
-    // /// Time zone. Valid values are: default, utc.
-    // ///
-    // /// default: uses the current database time zone.
-    // ///     If using this option, please make sure the source
-    // ///     and target databases have the same time zones.
-    // ///
-    // /// utc: The timestamp data will be converted to UTC format when retrieving from source database.
-    // ///     Should also use UTC option when importing to target database.
-    // ///
-    // #[structopt(short = "t", long, default_value = "default" )]
-    // pub timezone: String,
 }
 
 
