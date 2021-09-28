@@ -276,7 +276,7 @@ pub fn build_sql_prefix_and_suffix(tab: &TmpTabData, sql_type: &str) -> (String,
             if tab.not_pk_col_cnt > 0 {
                 _prefix = format!("insert into `{}`({}) values ", tab.table_name, tab.col_clause)
             } else {
-                _prefix = format!("insert ignore into `{}({})` values ", tab.table_name, tab.col_clause)
+                _prefix = format!("insert ignore into `{}`({}) values ", tab.table_name, tab.col_clause)
             }
             _suffix = format!("{};\n", tab.update_clause);
         },

@@ -103,6 +103,8 @@ Oracle2MySQL:
         	AND t.table_name NOT LIKE 'BIN$%'
         	AND t.table_name NOT LIKE 'SYS_EXPORT_SCHEMA%'
         	AND t.table_name NOT IN ('TMP_CONS', 'TMP_COLS', 'TMP_TAB_DDL', 'TMP_TAB_DATA', 'TMP_PREV_SCN', 'TMP_SEG_EXT')
+        	AND t.HIDDEN_COLUMN ='NO'
+            and t.column_id IS NOT NULL
         	ORDER BY t.owner, t.table_name, t.COLUMN_ID
         )
         ,tabs AS (
