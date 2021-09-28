@@ -4,6 +4,12 @@ A tool to migrate schema and data from Oracle 11g+ to MySQL 5.7+.
 
 Feel free to use this software and there is no warranty for it.
 
+# Important features
+* Generate MySQL-compatible DDL for specified Oracle Schema.
+* Generate MySQL-compatible Insert/Delete SQL for specified Oracle Schema data.
+* Supports exporting data in parallel.
+* Supports exporting data in normal/consistent/incremental mode.
+* DBA-friendly customization.
 
 # Change Logs:
 * 0.9.3 - Fixed a few issues.
