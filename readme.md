@@ -1,8 +1,9 @@
 
-# Qinghe,2021,<zhaopinglu77@gmail.com>
+# Qinghe
 A tool to migrate schema and data from Oracle 11g+ to MySQL 5.7+. 
 
 Feel free to use this software and there is no warranty for it.
+-- zhaopinglu77@gmail.com, 2021.
 
 # Important features
 * Generates MySQL-compatible DDL for specified Oracle Schema.
