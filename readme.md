@@ -14,6 +14,7 @@ Feel free to use this software and there is no warranty for it.
 * DBA-friendly customization.
 
 # Change Logs:
+* 0.9.5 - Improve help message and some other minor changes.
 * 0.9.3 - Fixed a few issues.
 * 0.9.2 - In incremental mode, add support for handling deleted data since last consistent mode exporting.
 * 0.9.1 - Add consistent/incremental exporting mode.
