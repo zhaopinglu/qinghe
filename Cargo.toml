@@ -4,9 +4,9 @@
 [package]
 name = "qinghe"
 authors = ["Zhaoping Lu <zhaopinglu77@gmail.cm>"]
-description = "A tool for generating ddl and insert sql for Oracle data."
+description = "A tool to migrate schema and data from Oracle 11g+ to MySQL 5/8"
 license = "Apache-2.0/MIT"
-version = "0.9.3"
+version = "0.9.4"
 edition = "2021"
 
 readme = "asdfaaaaa"
@@ -58,3 +58,8 @@ opt-level = 3
 opt-level = 1
 [profile.test.package."*"]
 opt-level = 3
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1

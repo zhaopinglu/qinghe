@@ -4,7 +4,7 @@ use lazy_static::*;
 pub const DEF_OUTPUT_FILENAME: &str = "<SCHEMA>_<..>";
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "Qinghe", about = "Zhaoping Lu <zhaopinglu77@gmail.com>\nA tool to migrate schema and data from Oracle 11g+ to MySQL 5.7+.\nFeel free to use this software and there is no warranty for it.")]
+#[structopt(name = "Qinghe", about = "Zhaoping Lu <zhaopinglu77@gmail.com>\nA tool to migrate schema and data from Oracle 11g+ to MySQL 5/8.\nFeel free to use this software and there is no warranty for it.")]
 pub struct Arguments {
     /// Activate debug mode
     #[structopt(long)]
@@ -34,11 +34,11 @@ pub struct Arguments {
     #[structopt(short = "S", long, default_value = "TEST" )]
     pub schema: String,
 
-    /// Output file name suffix, will be followed by a suffix string, like "_ddl.sql".
+    /// Output file name suffix, followed by a suffix string, like "_ddl.sql".
     #[structopt(short = "o", long, default_value = &DEF_OUTPUT_FILENAME )]
     pub output_prefix: String,
 
-    /// The number of parallel tasks for table data exporting.
+    /// The number of parallel tasks for table data exporting.{n}
     /// Valid values: 0: Auto (=cpu count). 1: No parallel. 2: Run 2 tasks for data exporting, etc,. .
     #[structopt(short = "x", long, default_value = "0" )]
     pub parallel: u32,
@@ -61,12 +61,12 @@ pub struct Arguments {
     #[structopt(short = "l", long, default_value = "info" )]
     pub log_level: String,
 
-    /// Consistent mode. Only meanful when content="data".
-    /// # Valid values:
-    /// * `normal`: Export all tables' data as they are;
-    /// * `consistent`: Export all table data in a consistent snapshot;
-    /// * `incremental`: Export the data changed since the previous consistent or incremental export.
-    /// # Note: 'consistent' or 'increment' modes export could hit ORA-01555 error if don't have sufficient undo tablespace.
+    /// Consistent mode. Only meaningful if content="data".{n}
+    /// # Valid values:{n}
+    /// * `normal`: Export all tables' data as they are;{n}
+    /// * `consistent`: Export all table data in a consistent snapshot;{n}
+    /// * `incremental`: Export the data changed since the previous consistent or incremental export.{n}
+    /// # Note: consistent or increment mode could hit ORA-01555 error if don't have sufficient undo tablespace.{n}
     #[structopt(short = "m", long, default_value = "normal" )]
     pub mode: String,
 }

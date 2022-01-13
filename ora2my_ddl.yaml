@@ -181,7 +181,7 @@ Oracle2MySQL:
         UPDATE (
         	SELECT special_define,
         	CASE
-        	WHEN c.table_name = 'T_CONSOLE_VERSIONDES' 				and column_name = 'MODIFIED_DATE'                   	THEN  'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'
+        	WHEN c.table_name = 'T_CONSOLE_VERSIONDES' 				and column_name = 'MODIFIED_DATE'                   	THEN  'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP'
         	WHEN c.table_name = 'T_CONSOLE_VERSIONDES' 				and column_name = 'CREATE_DATE'                     	THEN  'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP'
                 WHEN c.data_type='TIMESTAMP(6)' AND c.nullable = 'N' AND c.data_default_vc IS NULL 						THEN  'timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)'
                 WHEN c.data_type='TIMESTAMP' AND c.nullable = 'N' AND c.data_default_vc IS NULL 						THEN  'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP'
