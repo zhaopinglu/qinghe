@@ -29,7 +29,51 @@ https://yum.oracle.com/repo/OracleLinux/OL7/oracle/instantclient/x86_64/getPacka
 
 ### 2. Check detail help information with the following command:
 ./qinghe -h
+```
+$ ./qinghe -h
+Qinghe 0.9.5
+Zhaoping Lu <zhaopinglu77@gmail.com>
+A tool to migrate schema and data from Oracle 11g+ to MySQL 5/8.
+Feel free to use this software and there is no warranty for it.
 
+USAGE:
+    qinghe [FLAGS] [OPTIONS]
+
+FLAGS:
+        --debug      Activate debug mode
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -b, --batch-number <batch-number>
+            Specify the number of value clauses for the generated multiple-row-syntax INSERT statements. 0: means no
+            limit [default: 200]
+    -c, --content <content>                          Content. Valid values are: metadata, data, all [default: metadata]
+    -H, --host <host>                                Host [default: 192.168.12.5]
+    -l, --log-level <log-level>
+            Log level. Valid values: error, warn, info, debug, trace [default: info]
+
+    -m, --mode <mode>
+            Consistent mode. Only meaningful if content="data".
+             # Valid values:
+             * `normal`: Export all tables' data as they are;
+             * `consistent`: Export all table data in a consistent snapshot;
+             * `incremental`: Export the data changed since the previous consistent or incremental export.
+             # Note: consistent or increment mode could hit ORA-01555 error if don't have sufficient undo tablespace.
+             [default: normal]
+    -o, --output-prefix <output-prefix>
+            Output file name suffix, followed by a suffix string, like "_ddl.sql" [default: <SCHEMA>_<..>]
+
+    -x, --parallel <parallel>
+            The number of parallel tasks for table data exporting.
+             Valid values: 0: Auto (=cpu count). 1: No parallel. 2: Run 2 tasks for data exporting, etc,.  [default: 0]
+    -p, --password <password>                        Password [default: test]
+    -P, --port <port>                                Port [default: 1521]
+    -S, --schema <schema>                            Schema [default: TEST]
+    -s, --service-name <service-name>                Service_name [default: orcl]
+    -t, --table-name-pattern <table-name-pattern>    Specify the table name pattern for exporting [default: .]
+    -u, --user <user>                                User [default: test]
+```
 ### 3. Clean up garbage data for example log tables in source oracle database.
 i.e.:
 truncate table QRTZ_ERROR_LOG;
@@ -42,16 +86,16 @@ update T_I18N_STATIC set text_key=trim(text_key)||'_' where text_key like '% ';
 ### 4. Export schema ddl and data from Oracle database.
 
 #### Export ddl
-./qinghe -h 192.168.0.1 -s orcl -S myschema -u myuser -p mypass -c metadata
+./qinghe -H 192.168.0.1 -s orcl -S myschema -u myuser -p mypass -c metadata
 
 #### Export data in normal mode.
-./qinghe -h 192.168.0.1 -s orcl -S myschema -u myuser -p mypass -c data
+./qinghe -H 192.168.0.1 -s orcl -S myschema -u myuser -p mypass -c data
 
 #### Export data in consistent mode.
-./qinghe -h 192.168.0.1 -s orcl -S myschema -u myuser -p mypass -c data -m consistent
+./qinghe -H 192.168.0.1 -s orcl -S myschema -u myuser -p mypass -c data -m consistent
 
 #### Export data in incremental mode.
-./qinghe -h 192.168.0.1 -s orcl -S myschema -u myuser -p mypass -c data -m incremental
+./qinghe -H 192.168.0.1 -s orcl -S myschema -u myuser -p mypass -c data -m incremental
 
 ##### Noe: The generated files can be found in the output directory.
 
