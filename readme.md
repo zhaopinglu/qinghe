@@ -21,6 +21,8 @@ Feel free to use this software and there is no warranty for it.
 * 0.9.0 - Add parallel exporting.
 * 0.8.0 - initial release.
 
+# Dependencies:
+* Oracle Instance Client.
 
 # How-to:
 ### 1. Install instant client 19.3 from the following link if necessary.
