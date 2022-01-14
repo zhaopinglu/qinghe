@@ -22,7 +22,7 @@ Feel free to use this software and there is no warranty for it.
 * 0.8.0 - initial release.
 
 # Dependencies:
-* Oracle Instance Client.
+* Oracle Instant Client.
 
 # How-to:
 ### 1. Install instant client 19.3 from the following link if necessary.
