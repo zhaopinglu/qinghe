@@ -116,12 +116,9 @@ mysql -uroot -proot myschema < myschema_ddl.sql
 mysql -uroot -proot --binary-mode myschema < myschema_data.sql 2>&1 | tee myschema_data.log
 
 #### Load multiple files
-for f in $(ls consistent*MY_SCHEMA_NAME*.sql)
-do echo $f;
-mysql --binary-mode -h my_host -P3306 -u my_user -p my_pass my_db < $f
-done
+for f in $(ls normal*.sql); do echo $f; mysql --binary-mode -h 127.0.0.1 -P4000 -uroot -pMyNewPass4! ECS_EFILE < $f; done
 
-#### Note: need to use binary-mode when importing data, to avoid error caused by char '\0' in some 'text' data.
+**Note: need to use binary-mode when importing data, to avoid error caused by char '\0' in some 'text' data.**
 
 
 
