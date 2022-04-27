@@ -18,6 +18,7 @@ pub struct Arguments {
     #[structopt(short, long, default_value = "test")]
     pub password: String,
 
+
     /// Host
     #[structopt(short = "H", long, default_value = "127.0.0.1")]
     pub host: String,

@@ -2,7 +2,7 @@
 # Qinghe
 -- zhaopinglu77@gmail.com, 2021.
 
-A tool to migrate schema and data from Oracle 11g+ to MySQL 5.7+. 
+A tool to migrate schema and data from Oracle 11G/12C/19C/... database to MySQL 5/8 database.
 
 Feel free to use this software and there is no warranty for it.
 
