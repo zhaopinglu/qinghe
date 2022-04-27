@@ -36,6 +36,7 @@ pub async fn initialize_ddl(conn: &Connection) {
     create_tab(&conn, &DDL_SQLS["create_tmp_cols"]).await;
     create_tab(&conn, &DDL_SQLS["create_tmp_cons"]).await;
     create_tab(&conn, &DDL_SQLS["create_tmp_tab_ddl"]).await;
+    create_tab(&conn, &DDL_SQLS["create_tmp_def_dt"]).await;
 }
 
 pub async fn initialize_data(conn: &PooledConnection<OracleConnectionManager>) {

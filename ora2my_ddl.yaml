@@ -15,6 +15,16 @@ Oracle2MySQL:
     set_session_tz_utc: |
         ALTER SESSION SET TIME_ZONE='UTC'
 
+    create_tmp_def_dt: |
+        CREATE OR REPLACE FUNCTION tmp_def_dt(default_value varchar)
+        RETURN timestamp
+        AS
+        ret timestamp;
+        BEGIN
+            EXECUTE IMMEDIATE 'select ' || default_value || ' from dual' into ret;
+            return ret;
+        END;
+
     check_unsupported_type: |
         SELECT c.OWNER ||'.'|| c.TABLE_NAME ||'.'|| c.COLUMN_NAME COLUMN_NAME, c.DATA_TYPE
         FROM all_tab_cols c, all_objects o
@@ -179,36 +189,28 @@ Oracle2MySQL:
 
     update_tmp_cols_special_define: |
         UPDATE (
-        	SELECT special_define,
-        	CASE
-        	WHEN c.table_name = 'T_CONSOLE_VERSIONDES' 				and column_name = 'MODIFIED_DATE'                   	THEN  'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP'
-        	WHEN c.table_name = 'T_CONSOLE_VERSIONDES' 				and column_name = 'CREATE_DATE'                     	THEN  'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP'
-                WHEN c.data_type='TIMESTAMP(6)' AND c.nullable = 'N' AND c.data_default_vc IS NULL 						THEN  'timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)'
-                WHEN c.data_type='TIMESTAMP' AND c.nullable = 'N' AND c.data_default_vc IS NULL 						THEN  'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP'
-        	WHEN c.table_name = 'T_TRAVEL_INVOICES' 				and column_name = 'CREATE_TIME'                        	THEN  'timestamp(6)'
-        	WHEN c.table_name = 'T_FUND_PAYMENT_INFO' 				and column_name = 'SERIAL_NUM'                       	THEN  'int'
-        	WHEN c.table_name = 'T_FUND_PAYMENT_INFO' 				and column_name = 'CREATE_DATE'                      	THEN  'timestamp(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)'
-        	WHEN c.table_name = 'T_TRAVEL_SCHEDULE_INFO' 			and column_name = 'CREATE_DATE'                   		THEN  'datetime(6) NOT NULL'
-        	WHEN c.table_name = 'T_TRAVEL_SCHEDULE_INFO' 			and column_name = 'UPDATE_DATE'                   		THEN  'datetime(6) NOT NULL'
-        	WHEN c.table_name = 'T_RULE_GRAPHPOINTINFO' 			and column_name = 'IMPORT_TIME'                    		THEN  'timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP'
-        	ELSE null
-        	END res
-        	FROM tmp_cols c
+            SELECT special_define,
+            CASE
+            WHEN c.data_type LIKE 'TIMESTAMP(%)' AND c.nullable = 'N' AND c.data_default_vc IS NULL 		THEN  
+                'timestamp('||CASE WHEN data_scale>6 THEN 6 ELSE data_scale end||') NOT NULL DEFAULT CURRENT_TIMESTAMP('||CASE WHEN data_scale>6 THEN 6 ELSE data_scale end||')'
+            WHEN c.table_name = 'T_FUND_PAYMENT_INFO' 				and column_name = 'SERIAL_NUM'          THEN  'int'
+            END res
+            FROM tmp_cols c
         ) SET SPECIAL_DEFINE = res
         WHERE res IS NOT null
 
     insert_tmp_tab_ddl_1: |
         INSERT INTO tmp_tab_ddl
         SELECT c.owner,c.table_name, 1 PART, NULL,
-        chr(10)||'DROP TABLE IF EXISTS ' || '`' || c.TABLE_NAME || '`;' || chr(10)
-        || 'CREATE TABLE `' || c.TABLE_NAME || '` ('
+        chr(10)||'DROP TABLE IF EXISTS ' || '`' || c.TABLE_NAME || '`;' || chr(10) 
+        || 'CREATE TABLE `' || c.TABLE_NAME || '` (' 
         || chr(10) || dbms_xmlgen.convert(rtrim(xmlagg(xmlelement(e, chr(9)||'`'||c.column_name || '` ' ||
         CASE
         WHEN c.special_define IS NOT NULL THEN c.special_define
-        /*
+        /* 
          * In 12c:  The max length of varchar2 could be 32768.
          * But the max length of MySQL varchar can only be 16382, So may need to use text which has max length: 64k
-         * In mysql 5, data type nvarchar will be implitly changed with varchar(4) CHARACTER SET utf8. So use varchar instead.
+         * In mysql 5, data type NVARCHAR will be implitly changed with 'VARCHAR(4) CHARACTER SET utf8'. So use varchar instead. 
          * the dynamical vc-to-text-threadhold: to avoid mysql 16k limit of total length of all varchar columns.
         */
         WHEN    data_type IN ('NVARCHAR', 'NVARCHAR2', 'VARCHAR2', 'VARCHAR') and data_length >=nvl(vc_to_text_threadhold, 4000) AND c.DATA_DEFAULT_VC IS NULL       	THEN  'text'
@@ -235,11 +237,17 @@ Oracle2MySQL:
         WHEN    data_type = 'NUMBER' and data_scale = 0 and data_precision >= 9 and data_precision <19    	THEN  'bigint'
         WHEN    data_type = 'NUMBER' and data_scale = 0 and data_precision >= 19                          	THEN  'decimal(' || data_precision ||')'
         WHEN    data_type = 'NUMBER' and data_scale IS null and data_precision IS null                    	THEN  'decimal(38)'
-        WHEN    data_type = 'DATE'                                                                        	THEN  'datetime'
-        WHEN    data_type IN ('TIMESTAMP(9)', 'TIMESTAMP(9) WITH TIME ZONE', 'TIMESTAMP(9) WITH LOCAL TIME ZONE')	THEN  'timestamp(6)'
-        WHEN    data_type IN ('TIMESTAMP(6)', 'TIMESTAMP(6) WITH TIME ZONE', 'TIMESTAMP(6) WITH LOCAL TIME ZONE')	THEN  'timestamp(6)'
-        WHEN    data_type IN ('TIMESTAMP(3)', 'TIMESTAMP(3) WITH TIME ZONE', 'TIMESTAMP(3) WITH LOCAL TIME ZONE')	THEN  'timestamp(3)'
-        WHEN    data_type IN ('TIMESTAMP(0)', 'TIMESTAMP(0) WITH TIME ZONE', 'TIMESTAMP(0) WITH LOCAL TIME ZONE')	THEN  'timestamp(0)'
+        /* timestamp: '1970-01-01 00:00:01' UTC to '2038-01-19 03:14:07' UTC */
+        /* timestamp: max precision: 6 */
+        /* datetime : '1000-01-01 00:00:00' to '9999-12-31 23:59:59' */
+        WHEN trim(c.DATA_DEFAULT_VC) IS NOT NULL AND 
+            (lower(trim(c.DATA_DEFAULT_VC)) like 'to_timestamp%' OR	
+            lower(trim(c.DATA_DEFAULT_VC)) like 'to_date%') AND
+            (tmp_def_dt(c.DATA_DEFAULT_VC) <= TO_TIMESTAMP('1970-01-01 00:00:00', 'yyyy-mm-dd hh24:mi:ss') OR
+             tmp_def_dt(c.DATA_DEFAULT_VC) >= TO_TIMESTAMP('2038-01-19 03:14:07', 'yyyy-mm-dd hh24:mi:ss'))	THEN  'datetime('||CASE WHEN data_scale>6 THEN 6 ELSE data_scale end||')'
+        WHEN    data_type IN ('DATE', 'TIMESTAMP', 'TIMESTAMP(0)')											THEN  'datetime'
+        WHEN    data_type LIKE 'TIMESTAMP(%)'																THEN  'datetime('||CASE WHEN data_scale>6 THEN 6 ELSE data_scale end||')'
+        WHEN    data_type LIKE 'TIMESTAMP(%) WITH TIME ZONE'												THEN  'timestamp('||CASE WHEN data_scale>6 THEN 6 ELSE data_scale end||')'
         WHEN    data_type LIKE 'INTERVAL %'              												  	THEN  'varchar(30)'
         WHEN    data_type IN ('CLOB', 'NCLOB', 'LONG')                                                    	THEN  'longtext'
         WHEN    data_type IN ('BLOB', 'LONG RAW')                                                         	THEN  'longblob'
@@ -250,35 +258,37 @@ Oracle2MySQL:
         /* unsupported data types: anydata, RE$NV_LIST, AQ$_AGENT, UNDEFINED, etc. */
         ELSE 'UNSUPPORTED_'||data_type END
         /* nullable */
-        ||CASE
-        WHEN c.special_define IS NOT NULL THEN NULL
+        ||CASE 
+        WHEN c.special_define IS NOT NULL THEN NULL 
         WHEN nullable = 'N' THEN ' NOT NULL '
         ELSE ' NULL '
-        END
+        END 
         /* default value -- begin */
-        ||CASE
-        WHEN c.special_define IS NOT NULL THEN NULL
+        ||CASE   
+        WHEN c.special_define IS NOT NULL THEN NULL 
         WHEN nullable = 'N' AND lower(c.DATA_DEFAULT_VC) = 'null' 											THEN ''
-        WHEN c.data_default IS NULL 																		THEN NULL
+        WHEN c.data_default IS NULL 																		THEN NULL 
         WHEN lower(trim(c.DATA_DEFAULT_VC)) = 'sys_guid()' THEN NULL
         /* mysql: [1101] [42000]: BLOB, TEXT, GEOMETRY or JSON column 'COLUMN15' can't have a default value */
-        WHEN data_type IN ('CLOB', 'NCLOB', 'LONG', 'BLOB', 'LONG RAW') OR (data_type IN ('NVARCHAR', 'NVARCHAR2', 'VARCHAR2') and data_length > 16380) 	THEN NULL
+        WHEN data_type IN ('CLOB', 'NCLOB', 'LONG', 'BLOB', 'LONG RAW') 
+            OR (data_type IN ('NVARCHAR', 'NVARCHAR2', 'VARCHAR2') and data_length > 16380) 				THEN NULL 
         WHEN lower(c.DATA_DEFAULT_VC) = 'sysdate' OR lower(c.DATA_DEFAULT_VC) like 'current_timestamp%' 	THEN ' default now('||CASE WHEN data_scale > 6 THEN 6 ELSE data_scale end||')'
+        WHEN lower(trim(c.DATA_DEFAULT_VC)) like 'to_timestamp%' 
+            OR lower(trim(c.DATA_DEFAULT_VC)) like 'to_date%' 												THEN ' default '''||to_char(tmp_def_dt(c.DATA_DEFAULT_VC), 'yyyy-mm-dd hh24:mi:ss')||''' '
         else ' default '||to_char(c.data_default)
-        end
+        end  
         /* default value -- end */
         /* column comment. note: The comments can not contain any control char. */
         ||decode(c.comments, NULL,NULL,' comment '''||REGEXP_REPLACE(c.COMMENTS, '[[:cntrl:]]', ' ')||'''')
         || ','||chr(10)) ORDER BY c.COLUMN_ID).extract ('//text()').GetClobVal(),','||chr(10)), 1)
         /* pk */
-        ||(SELECT chr(10)|| chr(9) || ',primary key ('|| INDEX_COLS || ')' FROM tmp_cons con WHERE c.OWNER = con.OWNER AND c.TABLE_NAME = con.TABLE_NAME AND con.CONSTRAINT_TYPE = 'P')
+        ||(SELECT chr(10)|| chr(9) || ',primary key ('|| INDEX_COLS || ')' FROM tmp_cons con WHERE c.OWNER = con.OWNER AND c.TABLE_NAME = con.TABLE_NAME AND con.CONSTRAINT_TYPE = 'P') 
         /* uk */
-        ||(SELECT listagg(chr(10)|| chr(9) || ',unique key `'|| con.CONSTRAINT_NAME || '`(' || con.INDEX_COLS || ')') WITHIN GROUP (ORDER BY con.CONSTRAINT_NAME) FROM tmp_cons con WHERE c.OWNER = con.OWNER AND c.TABLE_NAME = con.TABLE_NAME AND con.CONSTRAINT_TYPE = 'U')
+        ||(SELECT listagg(chr(10)|| chr(9) || ',unique key `'|| con.CONSTRAINT_NAME || '`(' || con.INDEX_COLS || ')') WITHIN GROUP (ORDER BY con.CONSTRAINT_NAME) FROM tmp_cons con WHERE c.OWNER = con.OWNER AND c.TABLE_NAME = con.TABLE_NAME AND con.CONSTRAINT_TYPE = 'U') 
         /* engine and charset */
-        /*||chr(10)||') engine=innodb default charset=utf8mb4 collate=utf8mb4_general_ci'*/
-        ||chr(10)||') engine=innodb'
+        ||chr(10)||') engine=innodb' 
         /* table comment*/
-        ||decode(tm.COMMENTS,NULL,NULL,' comment='''||tm.COMMENTS||'''')
+        ||decode(tm.COMMENTS,NULL,NULL,' comment='''||tm.COMMENTS||'''') 
         || ';' || chr(10)
         tab_ddl
         FROM tmp_cols c, all_tab_comments tm

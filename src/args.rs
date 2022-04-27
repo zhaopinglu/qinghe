@@ -4,7 +4,7 @@ use lazy_static::*;
 pub const DEF_OUTPUT_FILENAME: &str = "<SCHEMA>_<..>";
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "Qinghe", about = "Zhaoping Lu <zhaopinglu77@gmail.com>\nA tool to migrate schema and data from Oracle 11g+ to MySQL 5/8.\nFeel free to use this software and there is no warranty for it.")]
+#[structopt(name = "Qinghe", about = "Zhaoping Lu <zhaopinglu77@gmail.com>\nA tool to migrate schema and data from Oracle 11G/12C/19C/... database to MySQL 5/8 database.\nFeel free to use this software and there is no warranty for it.")]
 pub struct Arguments {
     /// Activate debug mode
     #[structopt(long)]
@@ -19,7 +19,7 @@ pub struct Arguments {
     pub password: String,
 
     /// Host
-    #[structopt(short = "H", long, default_value = "192.168.12.5")]
+    #[structopt(short = "H", long, default_value = "127.0.0.1")]
     pub host: String,
 
     /// Port

@@ -474,8 +474,10 @@ pub fn refine_sql_value(val: &SqlValue) -> String {
             let ts= val.get::<Timestamp>().unwrap();
             let utc_dt = to_utc(ts);
             // utc_dt.format("%Y-%m-%d %H:%M:%S.%f")
-            let utc_str = utc_dt.format("\'%F %T.%f\'").to_string();
-            utc_str
+            let utc_str = utc_dt.format("\'%F %T.%6f\'").to_string();
+            let utc_str = utc_str.strip_suffix(".000000").unwrap_or(&utc_str).strip_suffix(".000").unwrap_or(&utc_str);
+            info!("val: {:?}, ora_type: {:?}, timestamp value: {:?}", val, ora_type, utc_str);
+            utc_str.to_string()
         },
         OracleType::BLOB |
         OracleType::Raw(..) |
