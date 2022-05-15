@@ -13,8 +13,13 @@ Feel free to use this software and there is no warranty for it.
 * Supports exporting data in normal/consistent/incremental mode.
 * DBA-friendly customization.
 
+# Todo:
+* Support exporting data in parallel instances. Should be useful for exporting specific tables in parallel.
+* Add table-level exported rows count to the output.
+
+
 # Change Logs:
-* 0.9.7 - Fix a serious bug: Exporting partitioned table could miss some data.
+* 0.9.7 - Fixed a serious bug: Exporting partitioned table could miss some data.
 * 0.9.6 - Better support for timestamp data type.
 * 0.9.5 - Improve help message and some other minor changes.
 * 0.9.3 - Fixed a few issues.
