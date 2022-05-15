@@ -6,7 +6,7 @@ name = "qinghe"
 authors = ["Zhaoping Lu <zhaopinglu77@gmail.cm>"]
 description = "A tool to migrate schema and data from Oracle 11G/12C/19C/... database to MySQL 5/8 database"
 license = "Apache-2.0/MIT"
-version = "0.9.6"
+version = "0.9.7"
 edition = "2021"
 
 readme = "asdfaaaaa"

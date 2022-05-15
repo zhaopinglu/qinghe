@@ -59,26 +59,13 @@ Oracle2MySQL:
         	SELECT e.*,
         			min(snap_scn) over(PARTITION BY 1) min_snap_scn,
         			sum(blocks) OVER (PARTITION BY owner, segment_name) total_blocks,
-        			CASE WHEN sum(blocks) OVER (PARTITION BY owner, segment_name)  > 4096 THEN CEIL(sum(blocks) OVER (PARTITION BY owner, segment_name) / 4096) ELSE 1 END dop,
+        			count(*) OVER (PARTITION BY owner, segment_name) dop,
+                    row_number() OVER (PARTITION BY owner, segment_name ORDER BY RELATIVE_FNO, BLOCK_ID) chunk_id,
         	        (SELECT 1 FROM all_tab_cols WHERE OWNER=E.owner AND table_name=E.SEGMENT_NAME AND data_type IN ('CLOB', 'BLOB', 'RAW', 'LONG RAW', 'LONG') AND rownum<2) has_lob,
         	        DBMS_ROWID.ROWID_CREATE(1,DATA_OBJECT_ID, RELATIVE_FNO, block_id, 0) start_rowid,
         	        DBMS_ROWID.ROWID_CREATE(1,DATA_OBJECT_ID, RELATIVE_FNO, block_id+blocks-1, 9999) end_rowid
         	  FROM   tmp_seg_ext E
         	  ORDER BY has_lob, total_blocks DESC, owner, SEGMENT_NAME, RELATIVE_FNO, BLOCK_ID
-        )
-        ,tile AS (
-        	SELECT	ntile(dop) OVER (PARTITION BY dop, owner, segment_name ORDER BY DATA_OBJECT_ID,RELATIVE_FNO, BLOCK_ID) chunk_id, e.* FROM e
-        )
-        ,grp AS (
-        	SELECT
-        	first_value(start_rowid) OVER(PARTITION BY owner, segment_name, chunk_id ORDER BY relative_fno, block_id) start_rowid,
-        	last_value(end_rowid) OVER(PARTITION BY owner, segment_name, chunk_id ORDER BY relative_fno, block_id RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) end_rowid,
-        	owner, segment_name, chunk_id,dop,has_lob, min_snap_scn  FROM tile ORDER BY has_lob, total_blocks DESC, owner, SEGMENT_NAME, RELATIVE_FNO, BLOCK_ID
-        )
-        , chunks AS (
-        	SELECT owner, segment_name, chunk_id, min_snap_scn,
-        	min(dop) dop, min(has_lob) has_lob,min(start_rowid) start_rowid, min(end_rowid) end_rowid
-        	FROM grp GROUP BY owner, segment_name, chunk_id,min_snap_scn
         )
         ,pks AS (
         	SELECT /*+ rule */ i.TABLE_OWNER, i.TABLE_NAME , i.COLUMN_NAME
@@ -116,15 +103,13 @@ Oracle2MySQL:
         		FROM cols WHERE owner = c.owner AND table_name = c.table_name AND ((has_pk=1 AND pk_col IS NULL) OR has_pk=0 OR not_pk_col_cnt=0)) update_clause
         	 FROM cols c GROUP BY owner, table_name, has_pk,not_pk_col_cnt
         )
-        SELECT k.*,
-        t.not_pk_col_cnt,
-        t.col_clause,
-        t.update_clause,
-        t.pk_clause,
+        SELECT
+        e.owner, e.segment_name, e.chunk_id, e.min_snap_scn, e.dop, e.has_lob, e.start_rowid, e.end_rowid,
+        t.not_pk_col_cnt, t.col_clause,t.update_clause, t.pk_clause,
         NULL status, NULL pid, NULL start_time, NULL end_time, NULL out_file
-        FROM chunks K, tabs t
-        WHERE t.owner = k.owner AND t.table_name = k.segment_name
-        ORDER BY dop DESC,has_lob, k.owner, segment_name, chunk_id
+        FROM e, tabs t
+        WHERE t.owner = e.owner AND t.table_name = e.segment_name
+        ORDER BY dop DESC,has_lob, e.owner, segment_name, chunk_id
 
     select_tmp_tab_data: |
         SELECT * FROM tmp_tab_data ORDER BY has_lob, dop DESC, owner, table_name, chunk_id

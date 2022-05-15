@@ -14,6 +14,7 @@ Feel free to use this software and there is no warranty for it.
 * DBA-friendly customization.
 
 # Change Logs:
+* 0.9.7 - Fix a serious bug: Exporting partitioned table could miss some data.
 * 0.9.6 - Better support for timestamp data type.
 * 0.9.5 - Improve help message and some other minor changes.
 * 0.9.3 - Fixed a few issues.
