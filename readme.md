@@ -14,8 +14,8 @@ Feel free to use this software and there is no warranty for it.
 * DBA-friendly customization.
 
 # Todo:
-* Support exporting data in parallel instances. Should be useful for exporting specific tables in parallel.
-* Add table-level exported rows count to the output.
+* Supports exporting data in parallel instances. Should be useful for exporting specific tables in parallel.
+* Adds table-level exported rows count to the output.
 
 
 # Change Logs:
