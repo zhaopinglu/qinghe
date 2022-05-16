@@ -232,7 +232,7 @@ pub async fn sink_tab_data(_pool: Pool<OracleConnectionManager>,
 
 pub async fn prepare_out_file(out_filename: &str) -> File {
     let mut f_data = File::create(out_filename).await.unwrap();
-    f_data.write_all(format!("-- This sql file was created by data migration tool Qinghe v0.9.6 (https://github.com/zhaopinglu/qinghe).\n").as_bytes()).await.unwrap();
+    f_data.write_all(format!("-- This sql file was created by data migration tool Qinghe v0.9.7 (https://github.com/zhaopinglu/qinghe).\n").as_bytes()).await.unwrap();
     f_data.write_all(format!("-- The timestamp/date values in this file were using UTC timezone.\n").as_bytes()).await.unwrap();
     f_data.write_all(format!("-- So make sure the session timezone is UTC before execute the follwing sql.\n").as_bytes()).await.unwrap();
     f_data.write_all(format!("set time_zone='+00:00';\n").as_bytes()).await.unwrap();

@@ -6,6 +6,7 @@ A tool to migrate schema and data from Oracle 11G/12C/19C/... database to MySQL 
 
 Feel free to use this software and there is no warranty for it.
 
+
 # Important features
 * Generates MySQL-compatible DDL for specified Oracle Schema.
 * Generates MySQL-compatible Insert/Delete SQL for specified Oracle Schema data.
@@ -16,7 +17,6 @@ Feel free to use this software and there is no warranty for it.
 # Todo:
 * Supports exporting data in parallel instances. Should be useful for exporting specific tables in parallel.
 * Adds table-level exported rows count to the output.
-
 
 # Change Logs:
 * 0.9.7 - Fixed a serious bug: Exporting partitioned table could miss some data.

@@ -5,3 +5,4 @@ qinghe2.sql
 qinghe.sql
 /.idea/
 /release
+/create_tgz.sh
