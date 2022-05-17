@@ -74,6 +74,7 @@ Oracle2MySQL:
         data_default_vc varchar2(4000),
         vc_to_text_threadhold NUMBER,
         special_define varchar2(4000),
+        notice varchar2(4000), /*v0.9.8*/
         PRIMARY key(owner, table_name,column_name)
         ) ON COMMIT PRESERVE ROWS
 
@@ -84,6 +85,7 @@ Oracle2MySQL:
         part NUMBER,
         obj_name varchar2(128),
         tab_ddl clob,
+        notice varchar2(4000), /*v0.9.8*/
         UNIQUE(owner, table_name, part, obj_name)
         ) ON COMMIT PRESERVE ROWS
 
@@ -105,39 +107,42 @@ Oracle2MySQL:
         )ON COMMIT PRESERVE ROWS
 
     insert_tmp_cons: |
-        INSERT INTO tmp_cons
+        INSERT INTO tmp_cons 
         WITH
         c1 AS (
-        	SELECT /*+ no_expand */ cc.owner,cc.constraint_name, cc.table_name, constraint_type, cc.column_name, tc.DATA_LENGTH, tc.DATA_TYPE,cc.POSITION,
-        	sum(tc.data_length) over(PARTITION BY cc.owner, cc.constraint_name) cons_cols_length,
-        	count(*) OVER (PARTITION by cc.owner, cc.constraint_name) cons_cols_num
-        	FROM ALL_CONS_COLUMNS cc, all_tab_cols tc,ALL_CONSTRAINTS c
-        	WHERE tc.owner = cc.owner AND tc.table_name = cc.table_name AND tc.COLUMN_NAME = cc.COLUMN_NAME
-        	and cc.owner = c.owner AND cc.TABLE_NAME = c.TABLE_NAME AND cc.CONSTRAINT_NAME = c.CONSTRAINT_NAME
-        	AND c.status='ENABLED'
-        	AND c.table_name NOT LIKE 'BIN$%' AND c.TABLE_name NOT LIKE 'SYS_EXPORT_SCHEMA%' 
-        	AND c.table_name NOT IN ('TMP_CONS', 'TMP_COLS', 'TMP_TAB_DDL')
-        	and cc.owner = :schema
-        	AND regexp_like(cc.table_name, :table_name_pattern)
+            SELECT  /*+ no_expand */ cc.owner,cc.constraint_name, cc.table_name, constraint_type, cc.column_name, tc.DATA_LENGTH, tc.DATA_TYPE,cc.POSITION,
+            sum(CASE WHEN regexp_like(DATA_TYPE,'CHAR|VARCHAR|CLOB') then tc.data_length else 0 end) over(PARTITION BY cc.owner, cc.constraint_name) cons_col_tot_length
+            ,sum(CASE WHEN regexp_like(DATA_TYPE,'CHAR|VARCHAR|CLOB') THEN 1 ELSE 0 end) OVER (PARTITION by cc.owner, cc.constraint_name) cons_col_cnt2
+            FROM ALL_CONS_COLUMNS cc, all_tab_cols tc,ALL_CONSTRAINTS c
+            WHERE tc.owner = cc.owner AND tc.table_name = cc.table_name AND tc.COLUMN_NAME = cc.COLUMN_NAME
+            and cc.owner = c.owner AND cc.TABLE_NAME = c.TABLE_NAME AND cc.CONSTRAINT_NAME = c.CONSTRAINT_NAME
+            AND c.status='ENABLED'
+            AND c.table_name NOT LIKE 'BIN$%' AND c.TABLE_name NOT LIKE 'SYS_EXPORT_SCHEMA%'
+            AND c.table_name NOT IN ('TMP_CONS', 'TMP_COLS', 'TMP_TAB_DDL')
+            and cc.owner = :schema
+            AND regexp_like(cc.table_name, :table_name_pattern)
         ),
         c2 AS (
-        	SELECT owner,constraint_name,table_name,
-        	listagg('`'||column_name||'`' ||
-        	CASE WHEN constraint_type IN ('P','U','F') AND cons_cols_length > 768 THEN
-                CASE
-                        WHEN table_name LIKE 'QRTZ%' THEN null
-                        WHEN regexp_like(DATA_TYPE,'^CHAR|^VARCHAR|^CLOB') THEN '('|| least(floor(420/cons_cols_num), data_length) ||')'
-                        WHEN regexp_like(DATA_TYPE,'^NCHAR|^NVARCHAR|^NCLOB') THEN '('|| least(floor(420/cons_cols_num), data_length/2) ||')'
-                END
-        	END
-        	,',') WITHIN GROUP (ORDER BY position) INDEX_COLS
-        	FROM c1
-        	GROUP BY owner,constraint_name,table_name
+            SELECT owner,constraint_name,table_name,
+            CASE WHEN constraint_type IN ('P','U','F')  THEN
+            listagg('`'||column_name||'`' ||
+            CASE
+            WHEN table_name LIKE 'QRTZ%' THEN NULL
+            /* index prefix length for large data type */
+            WHEN regexp_like(DATA_TYPE,'^CHAR|^VARCHAR|CLOB') and cons_col_tot_length > 768 THEN '('|| least(floor(420/cons_col_cnt2), data_length) ||')'
+            WHEN regexp_like(DATA_TYPE,'^NCHAR|^NVARCHAR|NCLOB') and cons_col_tot_length > 768 THEN '('|| least(floor(420/cons_col_cnt2), data_length/2) ||')'
+            END
+            ,',') WITHIN GROUP (ORDER BY position)
+            ELSE NULL
+            END INDEX_COLS
+            FROM c1
+            GROUP BY owner,constraint_name,table_name,constraint_type, cons_col_tot_length
         )
         SELECT c.owner, c.table_name,c.constraint_name, constraint_type,  to_lob(SEARCH_CONDITION), NULL, index_owner, index_name,
         r_owner,r_constraint_name,delete_rule,INDEX_COLS
         FROM all_constraints c, c2
         WHERE c.OWNER = c2.owner AND c.CONSTRAINT_NAME = c2.constraint_name
+    
 
 
     delete_tmp_cons: |
@@ -149,7 +154,7 @@ Oracle2MySQL:
     insert_tmp_cols: |
         INSERT INTO tmp_cols
         SELECT /*+ rule */ c.OWNER , c.TABLE_NAME , c.COLUMN_NAME , c.DATA_TYPE , c.DATA_LENGTH , c.DATA_PRECISION ,
-        c.DATA_SCALE , c.NULLABLE , c.COLUMN_ID , c.DEFAULT_LENGTH , cm.COMMENTS, to_lob(c.DATA_DEFAULT), NULL, NULL, NULL
+        c.DATA_SCALE , c.NULLABLE , c.COLUMN_ID , c.DEFAULT_LENGTH , cm.COMMENTS, to_lob(c.DATA_DEFAULT), NULL, NULL, NULL,NULL/*v0.9.8*/ 
         FROM all_tab_cols c, all_objects o, all_col_comments cm
         WHERE 1=1
         AND o.object_name NOT LIKE 'BIN$%' AND o.object_name NOT LIKE 'SYS_EXPORT_SCHEMA%'
@@ -199,6 +204,22 @@ Oracle2MySQL:
         ) SET SPECIAL_DEFINE = res
         WHERE res IS NOT null
 
+
+    update_tmp_cols_validate_timestamp: |
+        UPDATE (/*v0.9.8 mysql: valid range for timestamp: '1970-01-01 00:00:01' UTC to '2038-01-19 03:14:07' UTC*/
+            SELECT DATA_DEFAULT_VC, notice,owner,table_name,column_name,
+            CASE
+            WHEN tmp_def_dt(DATA_DEFAULT_VC) < timestamp '1970-01-01 00:00:01' THEN 'TO_TIMESTAMP(''1970-01-01 00:00:01'', ''yyyy-mm-dd hh24:mi:ss'')'
+            WHEN tmp_def_dt(DATA_DEFAULT_VC) > timestamp '2038-01-19 03:14:07' THEN 'TO_TIMESTAMP(''2038-01-19 03:14:07'', ''yyyy-mm-dd hh24:mi:ss'')'
+            ELSE DATA_DEFAULT_VC END valid_ts_str
+            FROM tmp_cols
+            WHERE data_type LIKE 'TIMESTAMP%'
+            AND DATA_DEFAULT_VC IS NOT null
+            AND tmp_def_dt(DATA_DEFAULT_VC) NOT between timestamp '1970-01-01 00:00:01' AND timestamp '2038-01-19 03:14:07'
+        ) SET DATA_DEFAULT_VC=valid_ts_str,
+        notice = '-- Warning: The default value was changed to meet MySQL specification(UTC 1970-01-01 00:00:01~2038-01-19 03:14:07), Col:'
+        ||table_name||'.'||column_name||' OrigVal:' || trim(DATA_DEFAULT_VC)
+
     insert_tmp_tab_ddl_1: |
         INSERT INTO tmp_tab_ddl
         SELECT c.owner,c.table_name, 1 PART, NULL,
@@ -237,16 +258,10 @@ Oracle2MySQL:
         WHEN    data_type = 'NUMBER' and data_scale = 0 and data_precision >= 9 and data_precision <19    	THEN  'bigint'
         WHEN    data_type = 'NUMBER' and data_scale = 0 and data_precision >= 19                          	THEN  'decimal(' || data_precision ||')'
         WHEN    data_type = 'NUMBER' and data_scale IS null and data_precision IS null                    	THEN  'decimal(38)'
-        /* timestamp: '1970-01-01 00:00:01' UTC to '2038-01-19 03:14:07' UTC */
         /* timestamp: max precision: 6 */
-        /* datetime : '1000-01-01 00:00:00' to '9999-12-31 23:59:59' */
-        WHEN trim(c.DATA_DEFAULT_VC) IS NOT NULL AND 
-            (lower(trim(c.DATA_DEFAULT_VC)) like 'to_timestamp%' OR	
-            lower(trim(c.DATA_DEFAULT_VC)) like 'to_date%') AND
-            (tmp_def_dt(c.DATA_DEFAULT_VC) <= TO_TIMESTAMP('1970-01-01 00:00:00', 'yyyy-mm-dd hh24:mi:ss') OR
-             tmp_def_dt(c.DATA_DEFAULT_VC) >= TO_TIMESTAMP('2038-01-19 03:14:07', 'yyyy-mm-dd hh24:mi:ss'))	THEN  'datetime('||CASE WHEN data_scale>6 THEN 6 ELSE data_scale end||')'
-        WHEN    data_type IN ('DATE', 'TIMESTAMP', 'TIMESTAMP(0)')											THEN  'datetime'
-        WHEN    data_type LIKE 'TIMESTAMP(%)'																THEN  'datetime('||CASE WHEN data_scale>6 THEN 6 ELSE data_scale end||')'
+        /*v0.9.8*/
+        WHEN    data_type = 'DATE'																			THEN  'datetime'
+        WHEN    data_type LIKE 'TIMESTAMP(%)'																THEN  'timestamp('||CASE WHEN data_scale>6 THEN 6 ELSE data_scale end||')'
         /* patterns: WITH TIME ZONE, WITH LOCAL TIME ZONE*/
         WHEN    data_type LIKE 'TIMESTAMP WITH% TIME ZONE'													THEN  'timestamp'
         WHEN    data_type LIKE 'TIMESTAMP(%) WITH% TIME ZONE'												THEN  'timestamp('||CASE WHEN data_scale>6 THEN 6 ELSE data_scale end||')'
@@ -292,7 +307,7 @@ Oracle2MySQL:
         /* table comment*/
         ||decode(tm.COMMENTS,NULL,NULL,' comment='''||tm.COMMENTS||'''') 
         || ';' || chr(10)
-        tab_ddl
+        tab_ddl,substr(listagg(c.notice,chr(10)),1,4000) notice
         FROM tmp_cols c, all_tab_comments tm
         WHERE 1=1
         AND c.owner = tm.owner AND c.table_NAME  = tm.TABLE_NAME
@@ -302,7 +317,7 @@ Oracle2MySQL:
         INSERT INTO tmp_tab_ddl
         SELECT c.owner,c.table_name, 2 PART, constraint_name,
         'alter table `'||c.table_name || '` add constraint ' || constraint_name||' check('||REPLACE(replace(search_condition_vc,chr(10),' '),'"','`')||');' || chr(10)
-        tab_ddl
+        tab_ddl,NULL /*v0.9.8*/
         FROM tmp_cons c
         WHERE constraint_type IN ('C')
         AND (c.owner, c.table_name) IN (SELECT owner, table_name FROM tmp_cols)
@@ -321,7 +336,7 @@ Oracle2MySQL:
         WHEN c.data_type LIKE 'NVARCHAR%' AND ic.column_length > 256 THEN '(128) /* prefix index */'
         ELSE '' end,',') WITHIN GROUP (ORDER BY ic.column_position)
         ||');' || chr(10)
-        tab_ddl
+        tab_ddl,NULL /*v0.9.8*/
         FROM all_indexes i, all_ind_columns ic, tmp_cols c
         WHERE (i.table_owner, i.table_name) IN (SELECT owner, table_name FROM tmp_cols)
         AND i.TABLE_OWNER = ic.TABLE_OWNER AND i.TABLE_NAME = ic.TABLE_NAME AND i.INDEX_NAME = ic.INDEX_NAME
@@ -332,6 +347,9 @@ Oracle2MySQL:
 
     select_tab_ddl: |
         SELECT tab_ddl FROM tmp_tab_ddl ORDER BY owner, table_name, part
+
+    select_tab_ddl_notice: |
+        SELECT notice FROM tmp_tab_ddl where notice is not null ORDER BY owner, table_name, part
 
 
     select_fk_ddl: |

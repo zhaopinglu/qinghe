@@ -6,7 +6,6 @@ use futures::*;
 use log::{info, debug, trace, error};
 use oracle::{Connection, SqlValue, RowValue, Row, Error};
 use oracle::sql_type::{ToSql, OracleType, Timestamp};
-use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{mpsc, Semaphore, RwLock, OwnedRwLockWriteGuard};
 use crate::common::*;
@@ -134,7 +133,7 @@ pub async fn export_schema_data() {
             tx = chn.0;
             _rx = chn.1;
             TAB_STATUS.insert(tab.table_name.clone(), Arc::new(RwLock::new(0)));
-            let out_filename = get_out_filename(format!("{}_{}_{}", ARGS.schema, tab.table_name,"data").as_str());
+            let out_filename = get_out_filename("data", format!("{}_{}_{}", ARGS.schema, tab.table_name,"data").as_str());
             let pool = pool.clone();
             let table_name = tab.table_name.clone();
             // create recv task
@@ -230,16 +229,17 @@ pub async fn sink_tab_data(_pool: Pool<OracleConnectionManager>,
     debug!("{} Table {} sinking task finished, out_file: {}", &seq, table_name, &out_filename);
 }
 
-pub async fn prepare_out_file(out_filename: &str) -> File {
-    let mut f_data = File::create(out_filename).await.unwrap();
-    f_data.write_all(format!("-- This sql file was created by data migration tool Qinghe v0.9.7 (https://github.com/zhaopinglu/qinghe).\n").as_bytes()).await.unwrap();
-    f_data.write_all(format!("-- The timestamp/date values in this file were using UTC timezone.\n").as_bytes()).await.unwrap();
-    f_data.write_all(format!("-- So make sure the session timezone is UTC before execute the follwing sql.\n").as_bytes()).await.unwrap();
-    f_data.write_all(format!("set time_zone='+00:00';\n").as_bytes()).await.unwrap();
-    f_data.write_all(format!("set FOREIGN_KEY_CHECKS=0;\n").as_bytes()).await.unwrap();
-    f_data.write_all(format!("\n").as_bytes()).await.unwrap();
-    f_data
-}
+// move this function to common mod. v0.9.8
+// pub async fn prepare_out_file(out_filename: &str) -> File {
+//     let mut f_data = File::create(out_filename).await.unwrap();
+//     f_data.write_all(format!("-- This sql file was created by data migration tool Qinghe v0.9.8 (https://github.com/zhaopinglu/qinghe).\n").as_bytes()).await.unwrap();
+//     f_data.write_all(format!("-- The timestamp/date values in this file were using UTC timezone.\n").as_bytes()).await.unwrap();
+//     f_data.write_all(format!("-- So make sure the session timezone is UTC before execute the follwing sql.\n").as_bytes()).await.unwrap();
+//     f_data.write_all(format!("set time_zone='+00:00';\n").as_bytes()).await.unwrap();
+//     f_data.write_all(format!("set FOREIGN_KEY_CHECKS=0;\n").as_bytes()).await.unwrap();
+//     f_data.write_all(format!("\n").as_bytes()).await.unwrap();
+//     f_data
+// }
 
 
 pub async fn build_fetch_sql(conn: &PooledConnection<OracleConnectionManager>, tab: &TmpTabData, sql_type: &str) -> String {
@@ -461,7 +461,7 @@ pub fn refine_sql_value(val: &SqlValue) -> String {
             // For data type: 'timestamp with local time zone', the datetime part of value will be converted to current time zone.
             // But the timezone property will still be set to the original time zone value.
             // It seems a bug of rust-oracle.
-            // So as a workaround, set the tome zone value of TimestampLTZ to 0 (aka. UTC).
+            // So as a workaround, set the time zone value of TimestampLTZ to 0 (aka. UTC).
             let utc_dt = to_utc(ts.and_tz_offset(0));
             let utc_str = utc_dt.format("\'%F %T.%f\'").to_string();
 

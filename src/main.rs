@@ -6,7 +6,6 @@ mod common;
 extern crate yaml_rust;
 extern crate serde_yaml;
 use log::{Level, info};
-use structopt::StructOpt;
 use args::*;
 use ora2my::*;
 use crate::common::abort_on_panic;
@@ -24,7 +23,19 @@ async fn main() {
 
     fast_log::init_log("qinghe.log", 1000, log_lev, None, true).unwrap();
 
-    info!("Using arguments:\n{:#?}\n------------------------------------------------------------------------", Arguments::from_args());
+    info!("Input arguments: host:{}, port:{}, service_name:{}, schema:{}, user:{}, parallel:{}, content:{}, mode:{}, batch_number:{}, table_name_pattern:{}, output_prefix:{}",
+        ARGS.host,
+        ARGS.port,
+        ARGS.service_name,
+        ARGS.schema,
+        ARGS.user,
+        ARGS.parallel,
+        ARGS.content,
+        ARGS.mode,
+        ARGS.batch_number,
+        ARGS.table_name_pattern,
+        ARGS.output_prefix
+    );
 
     abort_on_panic();
 

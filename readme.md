@@ -19,6 +19,7 @@ Feel free to use this software and there is no warranty for it.
 * Adds table-level exported rows count to the output.
 
 # Change Logs:
+* 0.9.8 - Fixed a timestamp bug: Since v0.9.5, some timestamp columns are mistakenly converted to datetime. This fix will keep the timestamp as it is.
 * 0.9.7 - Fixed a serious bug: Exporting partitioned table could miss some data.
 * 0.9.6 - Better support for timestamp data type.
 * 0.9.5 - Improve help message and some other minor changes.

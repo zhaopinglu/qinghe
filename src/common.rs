@@ -8,14 +8,16 @@ use chrono::prelude::*;
 use crate::args::*;
 use r2d2_oracle::{OracleConnectionManager, r2d2};
 use r2d2_oracle::r2d2::{Pool, };
+use tokio::fs::File;
+use tokio::io::AsyncWriteExt;
 
 /// Get output filename.
 ///
 /// # Arguments
 /// * `file_type - file type. Suggested values: 'ddl', 'data'
-pub fn get_out_filename(keyword: &str) -> String {
+pub fn get_out_filename(export_content: &str, keyword: &str) -> String {
     let prefix = if ARGS.output_prefix == DEF_OUTPUT_FILENAME { "output/".to_string() } else { format!("output/{}_", ARGS.output_prefix) };
-    let out_file = match ARGS.content.as_str() {
+    let out_file = match export_content {
         "metadata" => format!("{}{}.sql", prefix, keyword),
         "data" => format!("{}{}_{}.sql", prefix, ARGS.mode, keyword ),
         _ => unimplemented!(),
@@ -117,4 +119,16 @@ pub fn abort_on_panic() {
         default_panic(info);
         std::process::exit(1);
     }));
+}
+
+
+pub async fn prepare_out_file(out_filename: &str) -> File {
+    let mut f_data = File::create(out_filename).await.unwrap();
+    f_data.write_all(format!("-- This sql file was created by data migration tool Qinghe v0.9.8 (https://github.com/zhaopinglu/qinghe).\n").as_bytes()).await.unwrap();
+    f_data.write_all(format!("-- The timestamp/date values in this file were using UTC timezone.\n").as_bytes()).await.unwrap();
+    f_data.write_all(format!("-- So make sure the session timezone is UTC before execute the follwing sql.\n").as_bytes()).await.unwrap();
+    f_data.write_all(format!("set time_zone='+00:00';\n").as_bytes()).await.unwrap();
+    f_data.write_all(format!("set FOREIGN_KEY_CHECKS=0;\n").as_bytes()).await.unwrap();
+    f_data.write_all(format!("\n").as_bytes()).await.unwrap();
+    f_data
 }
