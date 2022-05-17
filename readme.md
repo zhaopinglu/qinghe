@@ -168,9 +168,6 @@ alter table T_I18N_STATIC add  UNIQUE KEY `AK_TKLC_T_I18N_S` (`LANGUAGE_CODE`,`T
 * Be careful, when configuring large values for parameters batch_number or parallel,
 this program might temporarily allocate large memory to store the table data.
 
-# Todo:
-* import : initial support & resuming on break point.
-
 
 
 
