@@ -1268,7 +1268,7 @@ dependencies = [
 
 [[package]]
 name = "qinghe"
-version = "0.9.8"
+version = "0.9.9"
 dependencies = [
  "async-channel",
  "async-trait",
@@ -1277,6 +1277,7 @@ dependencies = [
  "dashmap",
  "fast_log",
  "futures",
+ "itertools",
  "lazy_static",
  "linked-hash-map",
  "log",

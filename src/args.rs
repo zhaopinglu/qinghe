@@ -54,11 +54,12 @@ pub struct Arguments {
     #[structopt(short = "b", long, default_value = "200" )]
     pub batch_number: u32,
 
-    /// Specify the table name pattern for exporting.{n}
+    /// Filter tables by regexp pattern.{n}
     /// # Examples:{n}
     /// * `.`: match any table name.{n}
-    /// * `TEST`: match any table name contains "TEST".{n}
-    /// * `^TEST$`: match exactly table name "TEST".{n}
+    /// * `TEST`: table name contains "TEST".{n}
+    /// * `^TEST$`: table name is "TEST".{n}
+    /// * `^TEST$|^TTT`: table name is "TEST" or start with "TTT".{n}
     #[structopt(short = "t", long, default_value = "." )]
     pub table_name_pattern: String,
 

@@ -1,3 +1,5 @@
+#![feature(slice_group_by)]
+
 mod args;
 mod counter;
 mod ora2my;

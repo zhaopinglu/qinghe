@@ -20,7 +20,8 @@ use tokio::task::JoinHandle;
 use tokio::time::Instant;
 use tokio::runtime::*;
 use lazy_static::*;
-
+use itertools::Itertools;
+use std::collections::HashMap;
 
 type TabStatusMap = Arc<DashMap<String, Arc<RwLock<u8>>>>;
 lazy_static! {
@@ -113,8 +114,8 @@ pub async fn export_schema_data() {
 
     let tables = select_tab_data(&conn).await;
     let total_chunks = tables.len();
-    let mut total_tab_cnt = 0u32;
-    let mut last_tab_name = "".to_string();
+    // let mut total_tab_cnt = 0u32;
+    // let mut prev_tab_name = "".to_string();
     let parallel_num = get_parallel_num();
     info!("Parallel number: {}", parallel_num);
 
@@ -123,7 +124,7 @@ pub async fn export_schema_data() {
     // Create a not-used channel, just for getting tx and rx vars.
     let (mut tx, mut _rx) = mpsc::channel::<String>(1);
 
-    let mut handles: Vec<JoinHandle<(u32,u32)>> = vec![];
+    let mut handles: Vec<JoinHandle<(String, u32,u32, u128, u128)>> = vec![];
     let mut seq = 1u32;
     for tab in tables {
         if !TAB_STATUS.contains_key(&tab.table_name){
@@ -142,7 +143,7 @@ pub async fn export_schema_data() {
                               format!("{:>4}/{}", seq, total_chunks).clone()).await;
 
                 // no meaning, just for compatibility with the returned handle of fetch_tab_data.
-                (0,0)
+                ("".to_string(), 0, 0, 0, 0)
             });
             handles.push(hdl);
         }
@@ -162,34 +163,64 @@ pub async fn export_schema_data() {
         let tx2 = tx.clone();
         let hdl = TOKIO_RT.spawn(async move {
             let seq_str = format!("{:>4}/{}", seq, total_chunks);
-            let (exported_num,deleted_num) = fetch_tab_data(pool, tab2, tx2, seq_str, write_guard).await;
+            // let (table_name, exp_row_cnt, del_row_cnt, exp_row_ela, edel_row_ela) = fetch_tab_data(pool, tab2, tx2, seq_str, write_guard).await;
+            let res = fetch_tab_data(pool, tab2, tx2, seq_str, write_guard).await;
             drop(parallel_permit);
-            (exported_num, deleted_num)
+            res
         });
         handles.push(hdl);
 
-        if tab.table_name != last_tab_name {
-            total_tab_cnt = total_tab_cnt + 1;
-            last_tab_name = tab.table_name.clone();
-        }
+        // if tab.table_name != prev_tab_name {
+        //     total_tab_cnt = total_tab_cnt + 1;
+        //     prev_tab_name = tab.table_name.clone();
+        // }
         seq = seq + 1;
     }
     drop(tx);
-    let res = future::join_all(handles).await;
+    let res_handles = future::join_all(handles).await;
 
     save_prev_scn(&conn).await;
 
-    let (tot_exp_row, tot_del_row)= res.iter().fold((0u32, 0u32), |(exp_row, del_row), hdl| {
-        let a = hdl.as_ref().unwrap();
-        (exp_row +a.0, del_row +a.1)
+    let res_handles = res_handles
+        .into_iter()
+        .map(|h| h.unwrap())
+        .collect::<Vec<_>>();
+    info_summary(res_handles, start_time.elapsed().as_secs());
+
+}
+
+fn info_summary(res_handles: Vec<(String, u32, u32, u128, u128)>, secs: u64) {
+    info!("Summary:");
+
+    // sum over group by table_name
+    let hmap = res_handles
+        .iter()
+        .fold(HashMap::new(), |mut acc, h|{
+            let e = acc.entry(h.0.clone()).or_insert((0, 0, 0, 0));
+            *e = (e.0 + h.1, e.1 + h.2, e.2 + h.3, e.3 + h.4);
+            acc
+        });
+
+    for tab in hmap.keys().sorted(){
+        if tab.is_empty() {
+            continue;
+        }
+        let e = hmap.get(tab).unwrap();
+        info!("Table: {:<30}, Rows exported: {:>12}, ela(secs): {:>10}. Rows for delete: {:>12}, ela(secs): {:>10}", tab, e.0, e.2/1000000, e.1, e.3);
+    }
+
+    let (tot_exp_cnt, tot_del_cnt)= res_handles.iter().fold((0u32, 0u32), |(exp_cnt, del_cnt), hdl| {
+        let (_, chunk_exp_cnt, chunk_del_cnt, _, _) = hdl;
+        (exp_cnt + chunk_exp_cnt, del_cnt + chunk_del_cnt)
     });
     info!("Exporting schema data finished: schema: {}, table_name_pattern: \"{}\". Exported tables: {}. Total Exported Rows: {}. Total Rows For Delete: {}. Ela(secs): {}",
         &ARGS.schema,
         &ARGS.table_name_pattern,
-        total_tab_cnt,
-        tot_exp_row,
-        tot_del_row,
-        start_time.elapsed().as_secs());
+        0, //total_tab_cnt,
+        tot_exp_cnt,
+        tot_del_cnt,
+        secs
+    );
 }
 
 pub async fn save_prev_scn(conn: &PooledConnection<OracleConnectionManager>) {
@@ -232,7 +263,7 @@ pub async fn sink_tab_data(_pool: Pool<OracleConnectionManager>,
 // move this function to common mod. v0.9.8
 // pub async fn prepare_out_file(out_filename: &str) -> File {
 //     let mut f_data = File::create(out_filename).await.unwrap();
-//     f_data.write_all(format!("-- This sql file was created by data migration tool Qinghe v0.9.8 (https://github.com/zhaopinglu/qinghe).\n").as_bytes()).await.unwrap();
+//     f_data.write_all(format!("-- This sql file was created by data migration tool Qinghe v0.9.9 (https://github.com/zhaopinglu/qinghe).\n").as_bytes()).await.unwrap();
 //     f_data.write_all(format!("-- The timestamp/date values in this file were using UTC timezone.\n").as_bytes()).await.unwrap();
 //     f_data.write_all(format!("-- So make sure the session timezone is UTC before execute the follwing sql.\n").as_bytes()).await.unwrap();
 //     f_data.write_all(format!("set time_zone='+00:00';\n").as_bytes()).await.unwrap();
@@ -320,12 +351,12 @@ pub async fn build_full_sql_and_send(conn: &PooledConnection<OracleConnectionMan
     let rows = res.unwrap();
 
     let mut refined_values: Vec<String> = vec![String::new(); rows.column_info().len()];
-    let mut total_rows_num = 0u32;
+    let mut row_cnt = 0u32;
     let mut comma_flag = false;
 
     let mut buf = String::with_capacity(buf_size);
     for row_result in rows {
-        total_rows_num = total_rows_num + 1;
+        row_cnt = row_cnt + 1;
 
         let row = row_result.unwrap();
         for (col_idx, val) in row.sql_values().iter().enumerate() {
@@ -335,7 +366,7 @@ pub async fn build_full_sql_and_send(conn: &PooledConnection<OracleConnectionMan
         }
         let value_clause = build_sql_value_clause(&refined_values);
 
-        if total_rows_num == 1 {
+        if row_cnt == 1 {
             buf.push_str(sql_prefix.as_str());
             buf.push_str(value_clause.as_str());
             comma_flag = true;
@@ -350,7 +381,7 @@ pub async fn build_full_sql_and_send(conn: &PooledConnection<OracleConnectionMan
             continue;
         }
         // implicit: total_rows_num > 1
-        if ( total_rows_num -1 ) % ARGS.batch_number != 0 {
+        if ( row_cnt -1 ) % ARGS.batch_number != 0 {
             if comma_flag == true {
                 buf.push_str(",");
             }
@@ -365,11 +396,11 @@ pub async fn build_full_sql_and_send(conn: &PooledConnection<OracleConnectionMan
             comma_flag=true;
         }
     }
-    if total_rows_num > 0 {
+    if row_cnt > 0 {
         buf.push_str(sql_suffix.as_str());
         sender.send(buf).await.unwrap();
     }
-    (total_rows_num, start_time.elapsed().as_micros())
+    (row_cnt, start_time.elapsed().as_micros())
 }
 
 /// Fetch table data from Oracle then send to sinker task via channel.
@@ -377,43 +408,44 @@ pub async fn fetch_tab_data(pool: Pool<OracleConnectionManager>,
                             tab: TmpTabData,
                             sender: Sender<String>,
                             seq: String,
-                            rwlock_guard: Option<OwnedRwLockWriteGuard<u8>>) -> (u32, u32) {
+                            rwlock_guard: Option<OwnedRwLockWriteGuard<u8>>) -> (String, u32, u32, u128, u128) {
     debug!("{} Table {}.{} (Chunk {}) exporting ...", &seq, &ARGS.schema, tab.table_name, tab.chunk_id);
     debug!("fetch_tab_data - Requesting connection from pool. {:?}", pool.state());
     let conn = pool.get().unwrap();
 
     let output_prefix = format!("{} Table {}.{:<30} - (Chunk {:<4})", seq, &ARGS.schema, &tab.table_name, tab.chunk_id);
 
-    let tot_del_row_cnt=
+    let (chunk_del_cnt, chunk_del_ela) =
         // Note: only run delete-sql export job when chunk_id=1.
         // Block the insert-sql export futures until the delete-sql export future finished. Will use with tokio rwlock.
         if ARGS.mode.as_str() == "incremental" && tab.chunk_id == 1 {
             debug!("{} Delete SQL generation begin. ", output_prefix);
-            let (tot_del_row_cnt, tot_del_ela) = build_full_sql_and_send(&conn, &tab, &sender, seq.as_str(), "delete").await;
+            let (chunk_del_cnt, chunk_del_ela) = build_full_sql_and_send(&conn, &tab, &sender, seq.as_str(), "delete").await;
             // Release the write lock after generated the delete-sql.
             if let Some(guard) = rwlock_guard {
                 drop(guard);
             }
             info!("{} Delete SQL generated. Rows: {:<9}. Ela(sec): {:<5}. Rows/Sec: {}",
-                output_prefix, tot_del_row_cnt, tot_del_ela/1000000,
-                if tot_del_ela > 0 { tot_del_row_cnt as u128 * 1000000 / tot_del_ela } else { 0 }
+                output_prefix, chunk_del_cnt, chunk_del_ela/1000000,
+                if chunk_del_ela > 0 { chunk_del_cnt as u128 * 1000000 / chunk_del_ela } else { 0 }
             );
-            tot_del_row_cnt
+            (chunk_del_cnt, chunk_del_ela)
         } else {
-            0u32
+            (0u32, 0u128)
         };
 
     // Request the read lock before processing the insert-sql.
     // Make sure the insert-sql process won't begin until the delete-sql process finished.
     let read_guard = TAB_STATUS.get(&tab.table_name).unwrap().value().clone().read_owned().await;
     debug!("{} Insert SQL generation begin. ", output_prefix);
-    let (tot_exp_row_cnt, tot_exp_ela) = build_full_sql_and_send(&conn, &tab, &sender, seq.as_str(), "insert").await;
+    let (chunk_exp_cnt, chunk_exp_ela) = build_full_sql_and_send(&conn, &tab, &sender, seq.as_str(), "insert").await;
     drop(read_guard);
     info!("{} exported. Rows: {:<9}. Ela(sec): {:<5}. Rows/Sec: {}",
-        output_prefix, tot_exp_row_cnt, tot_exp_ela/1000000,
-        if tot_exp_ela > 0 { tot_exp_row_cnt as u128 * 1000000 / tot_exp_ela } else { 0 }
+        output_prefix, chunk_exp_cnt, chunk_exp_ela/1000000,
+        if chunk_exp_ela > 0 { chunk_exp_cnt as u128 * 1000000 / chunk_exp_ela } else { 0 }
     );
-    (tot_exp_row_cnt, tot_del_row_cnt)
+    // v0.9.9
+    (tab.table_name, chunk_exp_cnt, chunk_del_cnt, chunk_exp_ela, chunk_del_ela)
 }
 
 pub fn build_sql_value_clause(refined_values: &[String]) -> String {
