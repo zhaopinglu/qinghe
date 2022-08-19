@@ -16,9 +16,10 @@ Feel free to use this software and there is no warranty for it.
 
 # Todo:
 * Supports exporting data in parallel instances. Should be useful for exporting specific tables in parallel.
-* Adds table-level exported rows count to the output.
 
 # Change Logs:
+* 0.9.10 - Fixed a data type bug: oracle number to mysql int rule: data_type = 'NUMBER' and data_scale = 0 and data_precision < 11
+* 0.9.9 - Improve: Add data export summary in the end of output.
 * 0.9.8 - Fixed a timestamp bug: Since v0.9.5, some timestamp columns are mistakenly converted to datetime. This fix will keep the timestamp as it is.
 * 0.9.7 - Fixed a serious bug: Exporting partitioned table could miss some data.
 * 0.9.6 - Better support for timestamp data type.
@@ -44,7 +45,7 @@ Note:
 ./qinghe -h
 ```
 $ ./qinghe -h
-Qinghe 0.9.6
+Qinghe 0.9.10
 Zhaoping Lu <zhaopinglu77@gmail.com>
 A tool to migrate schema and data from Oracle 11g+ to MySQL 5/8.
 Feel free to use this software and there is no warranty for it.

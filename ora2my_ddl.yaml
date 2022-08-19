@@ -254,8 +254,9 @@ Oracle2MySQL:
         WHEN    data_type = 'NUMBER' and data_scale = 0 and data_precision <= 4                           	THEN  'smallint'
         /* mediumint: -8388608 - 8388607 */
         WHEN    data_type = 'NUMBER' and data_scale = 0 and data_precision <= 6                           	THEN  'mediumint'
-        WHEN    data_type = 'NUMBER' and data_scale = 0 and data_precision < 9                            	THEN  'int'
-        WHEN    data_type = 'NUMBER' and data_scale = 0 and data_precision >= 9 and data_precision <19    	THEN  'bigint'
+        /* int: -2,147,483,648 ~ 2,147,483,647 */
+        WHEN    data_type = 'NUMBER' and data_scale = 0 and data_precision < 11                           	THEN  'int'
+        WHEN    data_type = 'NUMBER' and data_scale = 0 and data_precision >= 11 and data_precision <19    	THEN  'bigint'
         WHEN    data_type = 'NUMBER' and data_scale = 0 and data_precision >= 19                          	THEN  'decimal(' || data_precision ||')'
         WHEN    data_type = 'NUMBER' and data_scale IS null and data_precision IS null                    	THEN  'decimal(38)'
         /* timestamp: max precision: 6 */
