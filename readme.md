@@ -16,6 +16,8 @@ Feel free to use this software and there is no warranty for it.
 
 # Todo:
 * Supports exporting data in parallel instances. Should be useful for exporting specific tables in parallel.
+* Replace single quote in comment with 2 single quote. 220829.
+* fix the typo vc_to_text_threadhold
 
 # Change Logs:
 * 0.9.10 - Fixed a data type bug: oracle number to mysql int rule: data_type = 'NUMBER' and data_scale = 0 and data_precision < 11
