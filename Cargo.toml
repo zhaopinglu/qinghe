@@ -9,7 +9,7 @@ license = "Apache-2.0/MIT"
 version = "0.9.10"
 edition = "2021"
 
-readme = "asdfaaaaa"
+readme = "readme.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -28,7 +28,7 @@ structopt = "*"
 log = "*"
 fast_log="*"
 
-tokio = { version = "*", features = ["full"]}
+tokio = { version = "1.28.0", features = ["full"]}
 
 lazy_static = "*"
 
