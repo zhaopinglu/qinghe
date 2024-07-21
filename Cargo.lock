@@ -1325,7 +1325,7 @@ dependencies = [
 
 [[package]]
 name = "qinghe"
-version = "0.9.10"
+version = "0.9.11"
 dependencies = [
  "async-channel",
  "async-trait",

@@ -21,6 +21,8 @@ Feel free to use this software and there is no warranty for it.
 * Exporting summary log seems not correct: Exported tables: 0
 
 # Change Logs:
+* 0.9.11 - Fixes:
+  * Fixed a bug: Missing WITHIN clause for the listagg function in ora2my_ddl.yaml which is still required in 11g/12c. 
 * 0.9.10 - Fixes:
   * Fixed a data type bug: oracle number to mysql int rule: data_type = 'NUMBER' and data_scale = 0 and data_precision < 11
   * Fixed a bug: The data type of snap_scn variable was u32 which could cause overflow since the oracle scn is a u64 value.
@@ -50,7 +52,7 @@ Note:
 ./qinghe -h
 ```
 $ ./qinghe -h
-Qinghe 0.9.10
+Qinghe 0.9.11
 Zhaoping Lu <zhaopinglu77@gmail.com>
 A tool to migrate schema and data from Oracle 11g+ to MySQL 5/8.
 Feel free to use this software and there is no warranty for it.

@@ -308,7 +308,7 @@ Oracle2MySQL:
         /* table comment*/
         ||decode(tm.COMMENTS,NULL,NULL,' comment='''||tm.COMMENTS||'''') 
         || ';' || chr(10)
-        tab_ddl,substr(listagg(c.notice,chr(10)),1,4000) notice
+        tab_ddl,substr(listagg(c.notice,chr(10)) WITHIN GROUP (ORDER BY 1),1,4000) notice
         FROM tmp_cols c, all_tab_comments tm
         WHERE 1=1
         AND c.owner = tm.owner AND c.table_NAME  = tm.TABLE_NAME
