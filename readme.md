@@ -1,6 +1,6 @@
 
 # Qinghe
--- zhaopinglu77@gmail.com, 2021-2024.
+-- zhaopinglu77@gmail.com, 2021.
 
 A tool to migrate schema and data from Oracle 11G/12C/19C/... database to MySQL 5/8 database.
 
@@ -15,6 +15,8 @@ Feel free to use this software and there is no warranty for it.
 * DBA-friendly customization.
 
 # Todo:
+* Supports exporting data in parallel instances. Should be useful for exporting specific tables in parallel.
+* Replace single quote in comment with 2 single quote. 220829.
 * fix the typo vc_to_text_threadhold
 * Exporting summary log seems not correct: Exported tables: 0
 
@@ -35,29 +37,18 @@ Feel free to use this software and there is no warranty for it.
 * 0.9.0 - Add parallel exporting.
 * 0.8.0 - initial release.
 
-# The dependencies:
+# Dependencies:
 * Oracle Instant Client.
-
-# Pre-requisites:
-* The source Oracle database version should be 11g+.
-* A dba user account or a non-dba user with the following privileges:
-  * grant execute on dbms_flashback to myuser;
-  * grant select on SYS.DBMS_PARALLEL_EXECUTE_EXTENTS to myuser;
-  * grant select any table to myuser [optional, only for exporting other users' tables];
 
 # How-to:
 ### 1. Install instant client 19.3 from the following link if necessary.
 https://yum.oracle.com/repo/OracleLinux/OL7/oracle/instantclient/x86_64/getPackage/oracle-instantclient19.3-basiclite-19.3.0.0.0-1.x86_64.rpm
 
-Then set the LD_LIBRARY_PATH environment variable to include the instant client directory.
-```
-export LD_LIBRARY_PATH=/xxx/instantclient_19_3:$LD_LIBRARY_PATH
-```
-
 Note: 
-* This is only necessary if there is no oracle database software installed in the system.
+  1. The instant client 19.3 version can work with 11.2.0.4+.
+  2. This is only necessary if there is no oracle database software installed in your system.
 
-### 2. Check the full help message of the tool.
+### 2. Check detail help information with the following command:
 ./qinghe -h
 ```
 $ ./qinghe -h
@@ -104,89 +95,59 @@ OPTIONS:
     -t, --table-name-pattern <table-name-pattern>    Specify the table name pattern for exporting [default: .]
     -u, --user <user>                                User [default: test]
 ```
-Notes:
-* When setting large values for parameters batch_number or parallel, this tool could  temporarily consume lots of memory during the data exporting.
- 
 ### 3. Clean up garbage data for example log tables in source oracle database.
 i.e.:
-```
 truncate table QRTZ_ERROR_LOG;
-```
+truncate table T_LOG_EXCEPTION_STACK;
+
+#### 3.1 In Oracle fix data containing tailing whitespace which will cause unique-violation in MySQL
+i.e.:
+update T_I18N_STATIC set text_key=trim(text_key)||'_' where text_key like '% ';
 
 ### 4. Export schema ddl and data from Oracle database.
 
 #### Export ddl
-```
-./qinghe -H 192.168.0.1 -s orcl -S MYSCHEMA -u myuser -p mypass -c metadata
-```
-
-Note: Most of the time, the schema name should be uppercase in Oracle.
+./qinghe -H 192.168.0.1 -s orcl -S myschema -u myuser -p mypass -c metadata
 
 #### Export data in normal mode.
-```
-./qinghe -H 192.168.0.1 -s orcl -S MYSCHEMA -u myuser -p mypass -c data
-```
+./qinghe -H 192.168.0.1 -s orcl -S myschema -u myuser -p mypass -c data
+
 #### Export data in consistent mode.
-```
-./qinghe -H 192.168.0.1 -s orcl -S MYSCHEMA -u myuser -p mypass -c data -m consistent
-```
+./qinghe -H 192.168.0.1 -s orcl -S myschema -u myuser -p mypass -c data -m consistent
+
 #### Export data in incremental mode.
-```
-./qinghe -H 192.168.0.1 -s orcl -S MYSCHEMA -u myuser -p mypass -c data -m incremental
-```
+./qinghe -H 192.168.0.1 -s orcl -S myschema -u myuser -p mypass -c data -m incremental
+
 ##### Noe: The generated files can be found in the output directory.
 
 
 ### 5. Create database on target MySQL database.
-```
-create DATABASE `mydb` DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_bin;
-```
+create DATABASE `myschema` DEFAULT CHARACTER SET utf8mb4 DEFAULT COLLATE utf8mb4_bin;
 
 #### Note: Sometimes, need to use collate utf8mb4_bin to avoid unique key conflict.
 
 ### 6. Import schema ddl and data into MySQL database.
-
-#### Backup the target MySQL database before importing.
-```
-mysqldump --default-character-set=utf8mb4 --set-charset -uroot -pMyPassword --set-gtid-purged=OFF mydb > mydb_backup.sql
-```
 #### Load ddl file
-```
 mysql -uroot -pMyPassword mydb < ddl.sql
-```
 
 #### Load single data file
-```
 mysql -uroot -pMyPassword --binary-mode mydb < normal_data.sql
-```
 
 #### Load multiple data files
-```
 for f in $(ls normal_*.sql); do echo "$(date) - $f"; mysql --binary-mode -h 127.0.0.1 -P3306 -uroot -pMyPassword mydb < $f; done
 
-```
 **Note: need to use binary-mode when importing data, to avoid error caused by char '\0' in some 'text' data.**
 
 
 
 # Limitations & Issues:
-### 1. Use system user when migrating data from Oracle 11.2.0.1, otherwise might hit error ORA-29491 during exporting partition tables.
+### 1. Use system when exporting data from Oracle 11.2.0.1, otherwise might hit error ORA-29491 during exporting partition tables.
 
-### 2. Can not create fk on partial-key index. 
-This is MySQL's limitation, It has nothing to do with this tool.
+### 2. Can not create fk on partial-key index. This is MySQL's limitation, not qinghe's.
 
-### 3. The primary key data contain tailing whitespace. This is fine in Oracle, but will cause the unique key violation in MySQL.
+### 3. Some original T_I18N_STATIC.TEXT_KEY data contain tailing whitespace.
+This is fine in Oracle, but will cause the unique key violation in MySQL.
 Because MySQL will discard tailing whitespace when indexing key value.
-Fix:
-* Remove the row with tailing whitespace in the table. Or
-* Replace tailing whitespace with '_' in the primary key data if acceptable. For example:
-```
--- Replace tailing whitespace with '_' in primary key data.
-update TABLE1 set PK_COL1 =concat(trim(PK_COL1),'_') where PK_COL1 like '% ';
-
--- Add the primary key.
-alter table TABLE1 add  PRIMARY KEY (`PK_COL1`);
-```
 
 ### 4. Seeing error: ORA-01466: unable to read data - table definition has changed.
 While exporting in incremental mode, if a table was created after previous consistent/incremental export,
@@ -201,23 +162,19 @@ Don't use TAB key when editing ora2my_data.yaml file or ora2my_ddl.yaml.
  
 Fix: before create database in MySQL, make sure to set the database variables: character_set_server=utf8mb4
 
-##### 7. ERROR 1071 (42000) at line 11: Specified key was too long; max key length is 3072 bytes
+##### ERROR 1071 (42000) at line 11: Specified key was too long; max key length is 3072 bytes
 Fix: reduce the varchar length of the table primary key.
 
-#### 8. ERROR 2006 (HY000) at line 4: MySQL server has gone away
+#### ERROR 2006 (HY000) at line 4: MySQL server has gone away
 Fix: Check if MySQL server is still available.
 Another possible reason is the variable max_allowed_packet is too small. So set max_allowed_packet=1024M
 
-### 9. Can not find file 'libnsl.so.1'
-Fix: If there is no /lib64/libnsl.so.* file exists, try to install libnsl package: 
-```
-yum install libnsl
-```
-And if the file /lib64/libnsl.so.2.0.2 exists, create a soft link:
-```
-ln -s /lib64/libnsl.so.2.0.2 /lib64/libnsl.so.1
-```
+# Fix:
+* update T_I18N_STATIC set text_key=concat(trim(text_key),'_') where text_key like '% ';
+alter table T_I18N_STATIC add  UNIQUE KEY `AK_TKLC_T_I18N_S` (`LANGUAGE_CODE`,`TEXT_KEY`);
 
+* Be careful, when configuring large values for parameters batch_number or parallel,
+this program might temporarily allocate large memory to store the table data.
 
 
 
